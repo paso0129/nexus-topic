@@ -119,33 +119,47 @@ def generate_article(
         client = Anthropic(api_key=api_key)
 
         # Create detailed prompt for Claude
-        prompt = f"""Write a comprehensive, SEO-optimized blog article about: {topic}
+        prompt = f"""Write a comprehensive, trending news article analyzing: {topic}
 
-Requirements:
+CRITICAL REQUIREMENTS:
+- This is a TRENDING TOPIC right now - explain WHY it's trending and getting so much attention
+- Start by explaining what's happening and why people are searching for this topic TODAY
+- Include analysis of the trend, public reaction, and implications
+- Write as if you're covering breaking news or a hot trending story
+
+Article Requirements:
 - Target audience: {target_audience}
 - Word count: {min_words}-{max_words} words
 - Format: HTML with proper semantic tags (h2, h3, p, ul, ol, strong, em)
-- Style: Informative, engaging, and authoritative
+- Style: News-style, authoritative, analytical
 - SEO: Include relevant keywords naturally throughout
-- Structure: Introduction, main body with subheadings, conclusion
-- Tone: Professional yet accessible
+- Tone: Professional journalist covering trending topics
 
-The article should:
-1. Start with an engaging introduction that hooks the reader
-2. Use clear H2 and H3 headings for structure
-3. Include specific examples and data when relevant
-4. Provide actionable insights
-5. End with a strong conclusion that summarizes key points
+The article MUST include:
+1. **Opening Hook**: Explain what's happening right now and why everyone is talking about this
+2. **Background Context**: Provide essential background for readers who just heard about this
+3. **Trend Analysis**: Analyze WHY this is trending - what triggered the surge in interest?
+4. **Key Details**: Cover the most important facts, data, quotes, or developments
+5. **Public Reaction**: How are people responding? What are the discussions?
+6. **Implications**: What does this mean? Why should readers care?
+7. **Conclusion**: Summarize the trend and what to watch for next
+
+Writing Style:
+- Write like you're a professional journalist covering today's trending stories
+- Be engaging and informative - explain complex topics clearly
+- Use present tense for current events ("is trending", "are discussing")
+- Include relevant context without overwhelming the reader
+- Make it feel timely and relevant to TODAY
 
 Format the output as HTML. Use <h2> for main sections, <h3> for subsections, <p> for paragraphs, <ul>/<ol> for lists.
 Do NOT include <html>, <head>, or <body> tags - just the article content.
 
 Also provide:
-- A compelling SEO title (under 60 characters)
-- A meta description (under 160 characters)
+- A compelling news headline (under 60 characters) that captures the trending aspect
+- A meta description (under 160 characters) that explains why this is trending
 
 Format your response as:
-TITLE: [Your title here]
+TITLE: [Your headline here]
 META: [Your meta description here]
 CONTENT:
 [Your HTML content here]

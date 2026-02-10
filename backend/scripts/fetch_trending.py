@@ -227,15 +227,16 @@ def fetch_hackernews_top(limit: int = 10) -> List[Dict]:
 
 def get_all_trending_topics(
     markets: List[str] = ['US', 'UK', 'CA'],
-    subreddits: List[str] = ['technology', 'worldnews'],
-    limit_per_source: int = 10
+    subreddits: List[str] = ['technology', 'worldnews', 'business', 'science', 'news', 'artificial'],
+    limit_per_source: int = 15
 ) -> List[Dict]:
     """
     Fetch trending topics from all sources and combine them.
+    Prioritizes Reddit and HackerNews for better real-time trending content.
 
     Args:
         markets: Countries for Google Trends
-        subreddits: Subreddits to monitor
+        subreddits: Subreddits to monitor (default: broad coverage)
         limit_per_source: Number of items per source
 
     Returns:
@@ -245,21 +246,36 @@ def get_all_trending_topics(
 
     all_trends = []
 
-    # Fetch from all sources
-    google_trends = fetch_google_trends(markets=markets, limit=limit_per_source)
-    reddit_trends = fetch_reddit_trending(subreddits=subreddits, limit=limit_per_source)
+    # Prioritize HackerNews and Reddit for real-time trends
+    logger.info("Priority: HackerNews and Reddit (real-time trending)")
     hn_trends = fetch_hackernews_top(limit=limit_per_source)
+    reddit_trends = fetch_reddit_trending(subreddits=subreddits, limit=limit_per_source)
 
-    all_trends.extend(google_trends)
-    all_trends.extend(reddit_trends)
+    # Add Google Trends (may fail, but try anyway)
+    google_trends = fetch_google_trends(markets=markets, limit=limit_per_source)
+
+    # Combine with HackerNews and Reddit first (higher priority)
     all_trends.extend(hn_trends)
+    all_trends.extend(reddit_trends)
+    all_trends.extend(google_trends)
 
-    # Sort by score (descending)
+    # Sort by score (descending) - HackerNews/Reddit scores are more reliable
     all_trends.sort(key=lambda x: x['score'], reverse=True)
 
-    logger.info(f"Total trending topics collected: {len(all_trends)}")
+    # Remove duplicates (keep highest score)
+    seen_keywords = set()
+    unique_trends = []
+    for trend in all_trends:
+        keyword_lower = trend['keyword'].lower()
+        # Check for similar keywords
+        if keyword_lower not in seen_keywords:
+            unique_trends.append(trend)
+            seen_keywords.add(keyword_lower)
 
-    return all_trends
+    logger.info(f"Total trending topics collected: {len(unique_trends)} (from {len(all_trends)} raw)")
+    logger.info(f"Sources: HackerNews={len(hn_trends)}, Reddit={len(reddit_trends)}, Google={len(google_trends)}")
+
+    return unique_trends
 
 
 if __name__ == "__main__":
