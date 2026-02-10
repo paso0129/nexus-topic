@@ -1,0 +1,18 @@
+# Core Dependencies
+anthropic>=0.18.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+PyYAML>=6.0
+
+# Web Scraping & Parsing
+beautifulsoup4>=4.12.0
+lxml>=5.1.0
+
+# Trending Sources
+pytrends>=4.9.0
+praw>=7.7.1
+
+# Optional: Enhanced functionality
+# Uncomment if needed
+# pillow>=10.0.0  # For image processing
+# schedule>=1.2.0  # For scheduled runs

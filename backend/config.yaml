@@ -1,0 +1,39 @@
+# AdSense Blog Automation Configuration
+
+# Google AdSense Settings
+adsense:
+  client_id: "ca-pub-XXXXXXXXXXXXXXXX"  # Replace with your AdSense client ID
+  slots:
+    header: "1234567890"      # Ad slot after introduction
+    in_article: "0987654321"  # Ad slot mid-content
+    sidebar: "1122334455"     # Ad slot before conclusion
+
+# Automation Settings
+automation:
+  # Target markets for trending topics
+  target_markets:
+    - "US"
+    - "UK"
+    - "CA"
+    - "DE"
+    - "FR"
+
+  # Number of articles to generate per run
+  articles_per_run: 3
+
+  # Article length (word count)
+  min_words: 1500
+  max_words: 2000
+
+  # Subreddits to monitor
+  subreddits:
+    - "technology"
+    - "worldnews"
+    - "business"
+    - "science"
+
+  # HackerNews settings
+  hackernews_limit: 10
+
+  # Content generation
+  content_model: "claude-sonnet-4-5-20250929"

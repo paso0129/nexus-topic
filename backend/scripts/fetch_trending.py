@@ -1,0 +1,277 @@
+"""
+Trending Topic Fetcher
+
+Collects trending topics from multiple sources:
+- Google Trends
+- Reddit
+- HackerNews
+"""
+
+import logging
+from typing import List, Dict, Optional
+from datetime import datetime
+import os
+
+try:
+    from pytrends.request import TrendReq
+except ImportError:
+    TrendReq = None
+
+try:
+    import praw
+except ImportError:
+    praw = None
+
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+def fetch_google_trends(
+    markets: List[str] = ['US', 'UK', 'CA', 'DE', 'FR'],
+    limit: int = 10
+) -> List[Dict]:
+    """
+    Fetch trending searches from Google Trends.
+
+    Args:
+        markets: List of country codes (e.g., ['US', 'UK', 'CA'])
+        limit: Maximum number of trends per market
+
+    Returns:
+        List of trending topics with metadata:
+        [
+            {
+                'keyword': str,
+                'source': 'google_trends',
+                'score': int,
+                'region': str,
+                'timestamp': str
+            }
+        ]
+    """
+    if TrendReq is None:
+        logger.error("pytrends is not installed. Install with: pip install pytrends")
+        return []
+
+    logger.info(f"Fetching Google Trends for markets: {markets}")
+    trends_list = []
+
+    try:
+        pytrends = TrendReq(hl='en-US', tz=360)
+
+        for market in markets:
+            try:
+                # Get trending searches
+                trending_searches = pytrends.trending_searches(pn=market.lower())
+
+                for idx, keyword in enumerate(trending_searches[0][:limit]):
+                    trends_list.append({
+                        'keyword': keyword,
+                        'source': 'google_trends',
+                        'score': limit - idx,  # Higher score for top trends
+                        'region': market,
+                        'timestamp': datetime.now().isoformat()
+                    })
+
+                logger.info(f"Fetched {len(trending_searches)} trends from {market}")
+
+            except Exception as e:
+                logger.error(f"Error fetching trends for {market}: {str(e)}")
+                continue
+
+    except Exception as e:
+        logger.error(f"Error initializing Google Trends: {str(e)}")
+
+    logger.info(f"Total trends fetched from Google: {len(trends_list)}")
+    return trends_list
+
+
+def fetch_reddit_trending(
+    subreddits: List[str] = ['technology', 'worldnews'],
+    limit: int = 10
+) -> List[Dict]:
+    """
+    Fetch trending posts from Reddit.
+
+    Args:
+        subreddits: List of subreddit names
+        limit: Number of posts to fetch per subreddit
+
+    Returns:
+        List of trending topics with metadata
+    """
+    if praw is None:
+        logger.error("praw is not installed. Install with: pip install praw")
+        return []
+
+    client_id = os.getenv('REDDIT_CLIENT_ID')
+    client_secret = os.getenv('REDDIT_CLIENT_SECRET')
+
+    if not client_id or not client_secret:
+        logger.warning("Reddit credentials not found in environment variables")
+        return []
+
+    logger.info(f"Fetching Reddit trends from: {subreddits}")
+    trends_list = []
+
+    try:
+        reddit = praw.Reddit(
+            client_id=client_id,
+            client_secret=client_secret,
+            user_agent='WordPress AdSense Automation Bot 1.0'
+        )
+
+        for subreddit_name in subreddits:
+            try:
+                subreddit = reddit.subreddit(subreddit_name)
+
+                for idx, post in enumerate(subreddit.hot(limit=limit)):
+                    trends_list.append({
+                        'keyword': post.title,
+                        'source': f'reddit_{subreddit_name}',
+                        'score': post.score,
+                        'region': 'global',
+                        'url': f'https://reddit.com{post.permalink}',
+                        'timestamp': datetime.now().isoformat()
+                    })
+
+                logger.info(f"Fetched {limit} posts from r/{subreddit_name}")
+
+            except Exception as e:
+                logger.error(f"Error fetching from r/{subreddit_name}: {str(e)}")
+                continue
+
+    except Exception as e:
+        logger.error(f"Error initializing Reddit client: {str(e)}")
+
+    logger.info(f"Total trends fetched from Reddit: {len(trends_list)}")
+    return trends_list
+
+
+def fetch_hackernews_top(limit: int = 10) -> List[Dict]:
+    """
+    Fetch top stories from HackerNews.
+
+    Args:
+        limit: Number of stories to fetch
+
+    Returns:
+        List of trending topics with metadata
+    """
+    logger.info(f"Fetching top {limit} HackerNews stories")
+    trends_list = []
+
+    try:
+        # Get top story IDs
+        response = requests.get(
+            'https://hacker-news.firebaseio.com/v0/topstories.json',
+            timeout=10
+        )
+        response.raise_for_status()
+        story_ids = response.json()[:limit]
+
+        # Fetch story details
+        for idx, story_id in enumerate(story_ids):
+            try:
+                story_response = requests.get(
+                    f'https://hacker-news.firebaseio.com/v0/item/{story_id}.json',
+                    timeout=10
+                )
+                story_response.raise_for_status()
+                story = story_response.json()
+
+                if story and 'title' in story:
+                    trends_list.append({
+                        'keyword': story['title'],
+                        'source': 'hackernews',
+                        'score': story.get('score', 0),
+                        'region': 'global',
+                        'url': story.get('url', f'https://news.ycombinator.com/item?id={story_id}'),
+                        'timestamp': datetime.now().isoformat()
+                    })
+
+            except Exception as e:
+                logger.error(f"Error fetching HN story {story_id}: {str(e)}")
+                continue
+
+        logger.info(f"Fetched {len(trends_list)} stories from HackerNews")
+
+    except Exception as e:
+        logger.error(f"Error fetching HackerNews top stories: {str(e)}")
+
+    return trends_list
+
+
+def get_all_trending_topics(
+    markets: List[str] = ['US', 'UK', 'CA'],
+    subreddits: List[str] = ['technology', 'worldnews'],
+    limit_per_source: int = 10
+) -> List[Dict]:
+    """
+    Fetch trending topics from all sources and combine them.
+
+    Args:
+        markets: Countries for Google Trends
+        subreddits: Subreddits to monitor
+        limit_per_source: Number of items per source
+
+    Returns:
+        Combined and sorted list of trending topics
+    """
+    logger.info("Fetching trending topics from all sources")
+
+    all_trends = []
+
+    # Fetch from all sources
+    google_trends = fetch_google_trends(markets=markets, limit=limit_per_source)
+    reddit_trends = fetch_reddit_trending(subreddits=subreddits, limit=limit_per_source)
+    hn_trends = fetch_hackernews_top(limit=limit_per_source)
+
+    all_trends.extend(google_trends)
+    all_trends.extend(reddit_trends)
+    all_trends.extend(hn_trends)
+
+    # Sort by score (descending)
+    all_trends.sort(key=lambda x: x['score'], reverse=True)
+
+    logger.info(f"Total trending topics collected: {len(all_trends)}")
+
+    return all_trends
+
+
+if __name__ == "__main__":
+    # Test the functions
+    print("Testing trending topic fetchers...\n")
+
+    print("=== Google Trends ===")
+    google_results = fetch_google_trends(markets=['US'], limit=5)
+    for trend in google_results:
+        print(f"  - {trend['keyword']} (Score: {trend['score']}, Region: {trend['region']})")
+
+    print("\n=== Reddit Trending ===")
+    reddit_results = fetch_reddit_trending(subreddits=['technology'], limit=5)
+    for trend in reddit_results:
+        print(f"  - {trend['keyword'][:60]}... (Score: {trend['score']})")
+
+    print("\n=== HackerNews Top ===")
+    hn_results = fetch_hackernews_top(limit=5)
+    for trend in hn_results:
+        print(f"  - {trend['keyword'][:60]}... (Score: {trend['score']})")
+
+    print("\n=== All Combined ===")
+    all_results = get_all_trending_topics(
+        markets=['US'],
+        subreddits=['technology'],
+        limit_per_source=3
+    )
+    for trend in all_results[:10]:
+        print(f"  - {trend['keyword'][:60]}... (Source: {trend['source']}, Score: {trend['score']})")
