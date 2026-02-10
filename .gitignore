@@ -68,3 +68,6 @@ htmlcov/
 tmp/
 temp/
 *.tmp
+
+# Frontend build artifacts
+frontend/
