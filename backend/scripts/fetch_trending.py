@@ -40,23 +40,14 @@ def fetch_google_trends(
     limit: int = 10
 ) -> List[Dict]:
     """
-    Fetch trending searches from Google Trends.
+    Fetch trending searches from Google Trends (using daily trends).
 
     Args:
         markets: List of country codes (e.g., ['US', 'UK', 'CA'])
         limit: Maximum number of trends per market
 
     Returns:
-        List of trending topics with metadata:
-        [
-            {
-                'keyword': str,
-                'source': 'google_trends',
-                'score': int,
-                'region': str,
-                'timestamp': str
-            }
-        ]
+        List of trending topics with metadata
     """
     if TrendReq is None:
         logger.error("pytrends is not installed. Install with: pip install pytrends")
@@ -66,23 +57,46 @@ def fetch_google_trends(
     trends_list = []
 
     try:
-        pytrends = TrendReq(hl='en-US', tz=360)
+        pytrends = TrendReq(hl='en-US', tz=360, timeout=(10, 25), retries=2, backoff_factor=0.1)
 
         for market in markets:
             try:
-                # Get trending searches
-                trending_searches = pytrends.trending_searches(pn=market.lower())
+                # Use realtime trending searches (more reliable)
+                try:
+                    trending_data = pytrends.realtime_trending_searches(pn=market)
 
-                for idx, keyword in enumerate(trending_searches[0][:limit]):
-                    trends_list.append({
-                        'keyword': keyword,
-                        'source': 'google_trends',
-                        'score': limit - idx,  # Higher score for top trends
-                        'region': market,
-                        'timestamp': datetime.now().isoformat()
-                    })
+                    if not trending_data.empty:
+                        for idx, row in trending_data.head(limit).iterrows():
+                            keyword = row.get('title', '') or row.get('entityNames', [''])[0]
+                            if keyword:
+                                trends_list.append({
+                                    'keyword': keyword,
+                                    'source': 'google_trends',
+                                    'score': limit - len(trends_list),
+                                    'region': market,
+                                    'timestamp': datetime.now().isoformat(),
+                                    'url': row.get('newsUrl', '')
+                                })
+                        logger.info(f"Fetched {len(trending_data)} realtime trends from {market}")
+                        continue
+                except Exception as e:
+                    logger.warning(f"Realtime trends failed for {market}: {str(e)}, trying daily trends...")
 
-                logger.info(f"Fetched {len(trending_searches)} trends from {market}")
+                # Fallback to daily search trends
+                try:
+                    daily_trends = pytrends.today_searches(pn=market)
+                    if not daily_trends.empty:
+                        for idx, keyword in enumerate(daily_trends[0][:limit]):
+                            trends_list.append({
+                                'keyword': keyword,
+                                'source': 'google_trends',
+                                'score': limit - idx,
+                                'region': market,
+                                'timestamp': datetime.now().isoformat()
+                            })
+                        logger.info(f"Fetched {len(daily_trends)} daily trends from {market}")
+                except Exception as e:
+                    logger.warning(f"Daily trends also failed for {market}: {str(e)}")
 
             except Exception as e:
                 logger.error(f"Error fetching trends for {market}: {str(e)}")

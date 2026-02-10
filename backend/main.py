@@ -24,6 +24,14 @@ from scripts.generate_content import generate_multiple_articles
 from scripts.optimize_adsense import optimize_ad_placement, validate_adsense_config
 from scripts.save_article import save_multiple_articles
 
+# Import database utilities
+try:
+    from scripts.database import get_db_client, is_supabase_enabled
+    SUPABASE_AVAILABLE = True
+except ImportError:
+    SUPABASE_AVAILABLE = False
+    logger.warning("Supabase client not available. Will use JSON-only mode.")
+
 # Load environment variables
 load_dotenv()
 
@@ -37,6 +45,55 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+
+def validate_environment() -> None:
+    """
+    Validate environment variables and database connection.
+    Checks for required API keys and Supabase configuration.
+    """
+    import os
+
+    logger.info("\nValidating environment...")
+
+    # Check Anthropic API key
+    if not os.getenv('ANTHROPIC_API_KEY'):
+        logger.error("ANTHROPIC_API_KEY not set in environment")
+        sys.exit(1)
+    logger.info("✓ Anthropic API key found")
+
+    # Check Supabase configuration
+    if SUPABASE_AVAILABLE and is_supabase_enabled():
+        logger.info("✓ Supabase enabled")
+
+        # Check required environment variables
+        if not os.getenv('SUPABASE_URL'):
+            logger.error("SUPABASE_URL not set in environment")
+            sys.exit(1)
+
+        if not os.getenv('SUPABASE_SERVICE_KEY'):
+            logger.error("SUPABASE_SERVICE_KEY not set in environment")
+            sys.exit(1)
+
+        logger.info("✓ Supabase credentials found")
+
+        # Test database connection
+        try:
+            db = get_db_client()
+            if db.test_connection():
+                logger.info("✓ Database connection successful")
+                article_count = db.get_article_count()
+                logger.info(f"✓ Current articles in database: {article_count}")
+            else:
+                logger.error("Database connection failed")
+                sys.exit(1)
+        except Exception as e:
+            logger.error(f"Database connection error: {str(e)}")
+            sys.exit(1)
+    else:
+        logger.info("⊘ Supabase not enabled, using JSON-only mode")
+
+    logger.info("Environment validation complete\n")
 
 
 def load_config(config_path: str = 'config.yaml') -> Dict:
@@ -122,6 +179,9 @@ Examples:
     logger.info(f"AdSense optimization: {not args.no_adsense}")
     logger.info(f"Output directory: {args.output}")
     logger.info("=" * 80)
+
+    # Validate environment
+    validate_environment()
 
     # Load configuration
     config = load_config(args.config)
@@ -209,9 +269,12 @@ Examples:
     else:
         logger.info("\n⊘ Skipping AdSense optimization (--no-adsense flag)")
 
-    # STEP 4: Save Articles as JSON
+    # STEP 4: Save Articles
     logger.info("\n" + "=" * 80)
-    logger.info("STEP 4: Saving Articles to JSON")
+    if SUPABASE_AVAILABLE and is_supabase_enabled():
+        logger.info("STEP 4: Saving Articles to Database and JSON")
+    else:
+        logger.info("STEP 4: Saving Articles to JSON")
     logger.info("=" * 80)
 
     try:

@@ -216,7 +216,7 @@ def generate_multiple_articles(
     **kwargs
 ) -> list:
     """
-    Generate multiple articles from a list of topics.
+    Generate multiple articles from a list of topics with duplicate checking.
 
     Args:
         topics: List of topic dictionaries from fetch_trending
@@ -228,12 +228,46 @@ def generate_multiple_articles(
     """
     logger.info(f"Generating {articles_count} articles from {len(topics)} topics")
 
+    # Get existing articles to avoid duplicates
+    existing_titles = set()
+    try:
+        from database import get_db_client, is_supabase_enabled
+        if is_supabase_enabled():
+            db = get_db_client()
+            existing_articles = db.list_articles(limit=100, published_only=False)
+            existing_titles = {a.get('title', '').lower() for a in existing_articles}
+            logger.info(f"Loaded {len(existing_titles)} existing article titles for duplicate check")
+    except Exception as e:
+        logger.warning(f"Could not load existing articles: {str(e)}")
+
     articles = []
+    used_topics = set()
+    topic_index = 0
 
-    for i, topic_data in enumerate(topics[:articles_count]):
+    while len(articles) < articles_count and topic_index < len(topics):
+        topic_data = topics[topic_index]
         topic = topic_data.get('keyword', topic_data.get('title', 'Unknown Topic'))
+        topic_index += 1
 
-        logger.info(f"Generating article {i+1}/{articles_count}: {topic}")
+        # Skip if topic already used
+        if topic.lower() in used_topics:
+            logger.info(f"Skipping duplicate topic: {topic}")
+            continue
+
+        # Skip if very similar title exists
+        topic_lower = topic.lower()
+        is_duplicate = False
+        for existing_title in existing_titles:
+            # Check for exact match or high similarity
+            if topic_lower in existing_title or existing_title in topic_lower:
+                logger.info(f"Skipping similar topic (already exists): {topic}")
+                is_duplicate = True
+                break
+
+        if is_duplicate:
+            continue
+
+        logger.info(f"Generating article {len(articles)+1}/{articles_count}: {topic}")
 
         article = generate_article(topic, **kwargs)
 
@@ -241,10 +275,12 @@ def generate_multiple_articles(
             # Add source information
             article['source_data'] = topic_data
             articles.append(article)
+            used_topics.add(topic.lower())
+            existing_titles.add(article['title'].lower())
         else:
             logger.warning(f"Failed to generate article for: {topic}")
 
-    logger.info(f"Successfully generated {len(articles)} articles")
+    logger.info(f"Successfully generated {len(articles)} unique articles")
 
     return articles
 
