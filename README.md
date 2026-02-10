@@ -1,18 +1,14 @@
-# AdSense Blog - AI-Powered Content Platform
+# NexusTopic Backend - AI Content Generation Automation
 
-Next.js 기반의 완전 자동화된 블로그 플랫폼으로 Google AdSense 수익 최적화를 지원합니다. Claude AI로 SEO 최적화된 콘텐츠를 생성하고 Vercel에 자동 배포됩니다.
+Python 기반의 자동화된 블로그 콘텐츠 생성 백엔드입니다. Claude AI를 사용하여 트렌딩 토픽을 수집하고 SEO 최적화된 콘텐츠를 생성합니다.
+
+## 🔗 관련 프로젝트
+
+- **Frontend**: [nexus-topic-frontend](https://github.com/paso0129/nexus-topic-frontend) (Next.js 14)
+- **Live Site**: [nexustopic.com](https://nexustopic.com)
 
 ## 🌟 주요 기능
 
-### Frontend (Next.js 14)
-- ⚡ App Router + Server Components
-- 🎨 Tailwind CSS + 다크모드
-- 📱 완전 반응형 디자인
-- 🚀 정적 생성 (SSG) + ISR
-- 💰 AdSense 최적화 배치
-- 🔍 SEO 최적화 (메타태그, Open Graph, Twitter Cards)
-
-### Backend (Python)
 - 🔥 트렌딩 토픽 자동 수집 (Google Trends, Reddit, HackerNews)
 - 🤖 Claude AI 콘텐츠 생성 (1500-2000단어)
 - 📊 SEO 자동 최적화
@@ -21,21 +17,21 @@ Next.js 기반의 완전 자동화된 블로그 플랫폼으로 Google AdSense �
 
 ## 📋 기술 스택
 
-- **Frontend**: Next.js 14, React 18, TypeScript, Tailwind CSS
-- **Backend**: Python 3.8+, Claude AI, PyTrends, PRAW
-- **Deployment**: Vercel (프론트엔드), GitHub Actions (자동화)
-- **DNS**: Cloudflare (도메인 관리)
+- **Python**: 3.8+
+- **AI**: Anthropic Claude (claude-sonnet-4-5)
+- **Libraries**: PyTrends, PRAW (Reddit), BeautifulSoup4
+- **Output**: JSON 파일 (Frontend에서 사용)
 
 ## 🚀 빠른 시작
 
 ### 1. 저장소 클론
 
 ```bash
-git clone <your-repo>
-cd wordpress-adsense-automation
+git clone https://github.com/paso0129/nexus-topic.git
+cd nexus-topic
 ```
 
-### 2. Backend 설정
+### 2. 가상 환경 설정
 
 ```bash
 cd backend
@@ -46,40 +42,34 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # 의존성 설치
 pip install -r requirements.txt
+```
 
-# 환경 변수 설정
+### 3. 환경 변수 설정
+
+```bash
 cp ../.env.example .env
 # .env 파일 편집하여 API 키 입력
 ```
 
-### 3. Frontend 설정
+필수 환경 변수:
+```env
+ANTHROPIC_API_KEY=your_api_key_here
+```
 
-```bash
-cd ../frontend
-
-# 의존성 설치
-npm install
-
-# 환경 변수 설정
-cp .env.local.example .env.local
-# .env.local 파일 편집
+선택적 환경 변수:
+```env
+REDDIT_CLIENT_ID=your_reddit_client_id
+REDDIT_CLIENT_SECRET=your_reddit_client_secret
+REDDIT_USER_AGENT=your_app_name
 ```
 
 ### 4. 콘텐츠 생성
 
 ```bash
-cd ../backend
 python main.py --articles 3
 ```
 
-### 5. 개발 서버 실행
-
-```bash
-cd ../frontend
-npm run dev
-```
-
-브라우저에서 `http://localhost:3000` 열기
+생성된 JSON 파일은 `../frontend/public/articles/` 디렉토리에 저장됩니다.
 
 ## 🔑 필요한 API 키
 
@@ -88,124 +78,105 @@ npm run dev
 2. API Key 생성
 3. `.env` 파일의 `ANTHROPIC_API_KEY`에 추가
 
-### Google AdSense (필수)
-1. [Google AdSense](https://www.google.com/adsense/) 계정 생성 및 승인
-2. 광고 단위 생성
-3. Client ID와 Slot ID를 `.env.local`에 추가
-
 ### Reddit API (선택사항)
 1. [Reddit Apps](https://www.reddit.com/prefs/apps) 방문
 2. Script 앱 생성
 3. Client ID와 Secret을 `.env`에 추가
 
+**참고**: Reddit API는 선택사항입니다. Reddit 없이도 Google Trends와 HackerNews로 충분한 콘텐츠를 생성할 수 있습니다.
+
 ## 📦 프로젝트 구조
 
 ```
-├── frontend/                    # Next.js 앱
-│   ├── src/
-│   │   ├── app/                # App Router 페이지
-│   │   ├── components/         # React 컴포넌트
-│   │   └── lib/                # 유틸리티 함수
-│   ├── public/
-│   │   └── articles/           # 생성된 아티클 JSON
-│   └── package.json
-├── backend/                     # Python 자동화
-│   ├── scripts/
-│   │   ├── fetch_trending.py  # 트렌드 수집
-│   │   ├── generate_content.py # AI 콘텐츠 생성
-│   │   ├── optimize_adsense.py # AdSense 최적화
-│   │   └── save_article.py    # JSON 저장
-│   ├── main.py                # 메인 실행 파일
-│   └── config.yaml            # 설정
-├── .env                        # 환경 변수
-├── vercel.json                # Vercel 배포 설정
-└── README.md
+backend/
+├── scripts/
+│   ├── fetch_trending.py      # 트렌드 수집
+│   ├── generate_content.py    # AI 콘텐츠 생성
+│   ├── optimize_adsense.py    # AdSense 최적화
+│   └── save_article.py        # JSON 저장
+├── main.py                    # 메인 실행 파일
+├── config.yaml               # 설정
+└── requirements.txt          # Python 의존성
 ```
 
-## 🌐 Vercel 배포
+## 🔧 설정 커스터마이징
 
-### 자동 배포 (GitHub 연동)
+### config.yaml
 
-1. **GitHub에 푸시**
+```yaml
+automation:
+  content_model: "claude-sonnet-4-5-20250929"
+  min_words: 1500
+  max_words: 2000
+  target_audience: "North American and European readers"
+
+adsense:
+  placements_per_article: 12
+  min_spacing_paragraphs: 3
+```
+
+## 📝 사용 예시
+
+### 기본 사용
 ```bash
-git init
-git add .
-git commit -m "Initial commit"
-git remote add origin <your-github-repo>
-git push -u origin main
+python main.py --articles 3
 ```
 
-2. **Vercel 연결**
-- [Vercel](https://vercel.com) 접속
-- "Import Project" 클릭
-- GitHub 저장소 선택
-- Root Directory를 `frontend`로 설정
-- Environment Variables 추가:
-  - `NEXT_PUBLIC_ADSENSE_CLIENT_ID`
-  - `NEXT_PUBLIC_ADSENSE_SLOT_HEADER`
-  - `NEXT_PUBLIC_ADSENSE_SLOT_IN_ARTICLE`
-  - `NEXT_PUBLIC_ADSENSE_SLOT_FOOTER`
-  - `NEXT_PUBLIC_SITE_NAME`
-  - `NEXT_PUBLIC_SITE_URL`
+### 특정 소스에서만 수집
+```python
+# main.py에서 소스 선택
+topics = fetch_trending_topics(
+    sources=['hackernews', 'google_trends']  # Reddit 제외
+)
+```
 
-3. **배포 완료!**
-- Vercel이 자동으로 빌드 및 배포
-- `your-project.vercel.app` URL 생성됨
+## 🔄 워크플로우
 
-### 수동 배포
+1. **트렌드 수집** (`fetch_trending.py`)
+   - Google Trends: 인기 검색어
+   - HackerNews: 상위 포스트
+   - Reddit: Hot 포스트 (선택사항)
+
+2. **콘텐츠 생성** (`generate_content.py`)
+   - Claude AI로 1500-2000단어 아티클 생성
+   - SEO 최적화 (메타 태그, 키워드)
+   - HTML 마크업 생성
+
+3. **AdSense 최적화** (`optimize_adsense.py`)
+   - 전략적 광고 위치 계산
+   - 12개 광고 단위 배치
+   - 가독성 유지
+
+4. **JSON 저장** (`save_article.py`)
+   - 개별 아티클 JSON 파일
+   - 인덱스 파일 업데이트
+   - Frontend에서 바로 사용 가능
+
+## 🌐 Frontend 연동
+
+생성된 JSON 파일은 Frontend 레포의 `public/articles/` 디렉토리로 복사해야 합니다:
 
 ```bash
-cd frontend
-npm install -g vercel
-vercel
+# Backend에서 아티클 생성
+python main.py --articles 3
+
+# Frontend 레포로 복사 (Frontend 레포를 별도로 클론한 경우)
+cp -r ../frontend/public/articles/*.json /path/to/nexus-topic-frontend/public/articles/
+
+# Frontend 레포에서 커밋 & 푸시
+cd /path/to/nexus-topic-frontend
+git add public/articles/*.json
+git commit -m "Add new articles"
+git push
 ```
 
-## 🌍 Cloudflare 도메인 연결
+Vercel이 자동으로 재배포합니다.
 
-### 1. 도메인 구매
-- [Cloudflare Domains](https://www.cloudflare.com/products/registrar/) 또는 다른 등록기관에서 도메인 구매
+## 🤖 자동화 (선택사항)
 
-### 2. Cloudflare DNS 설정
-1. Cloudflare 대시보드에서 도메인 추가
-2. DNS 레코드 추가:
-   - Type: `CNAME`
-   - Name: `@` (또는 `www`)
-   - Target: `cname.vercel-dns.com`
-   - Proxy status: Proxied (주황색 구름)
+### GitHub Actions
 
-### 3. Vercel에서 도메인 연결
-1. Vercel 프로젝트 → Settings → Domains
-2. 구매한 도메인 입력 (예: `yourdomain.com`)
-3. DNS 레코드 확인 및 완료
-
-### 4. SSL 자동 설정
-- Cloudflare와 Vercel 모두 자동으로 SSL 인증서 발급
-
-## 💰 수익 최적화
-
-### AdSense 배치 전략
-1. **헤더 광고**: 도입부 직후 (높은 가시성)
-2. **본문 광고**: 콘텐츠 중간 (참여 시점)
-3. **푸터 광고**: 아티클 끝 (이탈 방지)
-
-### SEO 최적화
-- 메타 태그 자동 생성
-- Open Graph 이미지
-- 구조화된 데이터
-- 모바일 최적화
-- 빠른 로딩 속도 (Next.js SSG)
-
-### 콘텐츠 전략
-- 트렌딩 토픽 타겟팅
-- 1500-2000단어 (SEO 최적)
-- 키워드 밀도 최적화
-- 읽기 쉬운 구조
-
-## 🔄 자동화 워크플로우
-
-### GitHub Actions (선택사항)
-
-`.github/workflows/generate-content.yml` 생성:
+`.github/workflows/generate-content.yml`:
 
 ```yaml
 name: Generate Content
@@ -220,95 +191,68 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+
       - name: Install dependencies
         run: |
           cd backend
           pip install -r requirements.txt
+
       - name: Generate articles
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
-          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
         run: |
           cd backend
           python main.py --articles 2
-      - name: Commit and push
+
+      - name: Commit articles
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
           git add frontend/public/articles/
-          git commit -m "Auto-generate articles" || exit 0
+          git commit -m "Auto-generate articles [skip ci]" || exit 0
           git push
-```
-
-## 🎨 디자인 커스터마이징
-
-### 색상 변경
-`frontend/tailwind.config.ts`에서 색상 팔레트 수정:
-
-```typescript
-colors: {
-  primary: {
-    500: '#your-color',
-    // ...
-  },
-}
-```
-
-### 레이아웃 수정
-- `frontend/src/components/Header.tsx`
-- `frontend/src/components/Footer.tsx`
-- `frontend/src/app/layout.tsx`
-
-## 📊 분석 추가
-
-### Google Analytics
-
-`frontend/src/app/layout.tsx`에 추가:
-
-```tsx
-<Script
-  src={`https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX`}
-  strategy="afterInteractive"
-/>
-<Script id="google-analytics" strategy="afterInteractive">
-  {`
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-XXXXXXXXXX');
-  `}
-</Script>
 ```
 
 ## 🐛 문제 해결
 
-### 콘텐츠가 표시되지 않음
+### Claude API 에러
 ```bash
-# Backend에서 아티클 생성 확인
-cd backend
-python main.py --articles 1
+# 모델 이름 확인
+# config.yaml에서 "claude-sonnet-4-5-20250929" 사용
+```
 
-# 생성된 파일 확인
+### JSON 파일이 생성되지 않음
+```bash
+# 출력 디렉토리 확인
 ls -la ../frontend/public/articles/
+
+# 권한 문제 확인
+chmod +w ../frontend/public/articles/
 ```
 
-### AdSense 광고가 표시되지 않음
-1. `.env.local`에 AdSense Client ID 확인
-2. AdSense 계정 승인 확인
-3. 24-48시간 대기 (새 사이트)
-4. 브라우저 광고 차단기 비활성화
+### 트렌드 수집 실패
+- Google Trends: API 제한 확인 (10-20초 대기)
+- Reddit: API 키 확인 또는 Reddit 제외하고 진행
+- HackerNews: 네트워크 연결 확인
 
-### Vercel 빌드 실패
-```bash
-# 로컬에서 빌드 테스트
-cd frontend
-npm run build
-```
+## 📊 콘텐츠 품질
+
+### SEO 최적화
+- 1500-2000단어 (검색엔진 선호)
+- 키워드 밀도 2-3%
+- 헤딩 구조 (H2, H3)
+- 메타 디스크립션 자동 생성
+
+### 가독성
+- 짧은 문단 (3-4문장)
+- 불릿 포인트 사용
+- 명확한 소제목
+- 예시와 설명 포함
 
 ## 📝 라이선스
 
@@ -316,9 +260,9 @@ MIT License - 상업적 사용 가능
 
 ## ⚠️ 주의사항
 
-- Google AdSense 정책 준수 필수
+- Anthropic API 사용량 모니터링 필수
 - 생성된 콘텐츠는 검토 권장
-- API 사용량 모니터링
+- Google AdSense 정책 준수
 - 백업 정기적으로 실행
 
 ## 🤝 기여
@@ -327,6 +271,6 @@ MIT License - 상업적 사용 가능
 
 ---
 
-**Happy Blogging! 💰📝**
+**Powered by Claude AI** 🤖
 
-Powered by Next.js, Claude AI, and Google AdSense
+트렌딩 토픽을 놓치지 마세요!
