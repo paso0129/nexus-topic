@@ -360,7 +360,7 @@ class DatabaseClient:
             def fetch_keywords():
                 return self.client.table('trending_sources') \
                     .select('keyword') \
-                    .order('created_at', desc=True) \
+                    .order('timestamp', desc=True) \
                     .limit(limit) \
                     .execute()
 
