@@ -78,6 +78,54 @@ def _is_similar(text_a: str, text_b: str, threshold: float = 0.35) -> bool:
     return similarity >= threshold
 
 
+def _is_semantic_duplicate(new_title: str, existing_titles: set) -> bool:
+    """
+    Use Claude Haiku to check if a generated article title covers the same
+    topic as any existing article. Catches duplicates that word-overlap
+    similarity misses (e.g. 'Ring Surveillance Dragnet' vs
+    'Ring Doorbell Network Sparks Privacy Outcry').
+
+    Args:
+        new_title: The newly generated article title
+        existing_titles: Set of existing article titles (lowercase)
+
+    Returns:
+        True if the new title is a semantic duplicate
+    """
+    try:
+        api_key = os.getenv('ANTHROPIC_API_KEY')
+        if not api_key:
+            return False
+
+        from anthropic import Anthropic
+        client = Anthropic(api_key=api_key)
+
+        # Send top 50 existing titles to keep prompt short
+        titles_list = '\n'.join(list(existing_titles)[:50])
+
+        resp = client.messages.create(
+            model='claude-haiku-4-5-20251001',
+            max_tokens=5,
+            messages=[{
+                'role': 'user',
+                'content': (
+                    f'Does this new article title cover the SAME topic as any existing article?\n\n'
+                    f'New title: {new_title}\n\n'
+                    f'Existing titles:\n{titles_list}\n\n'
+                    f'Reply ONLY "YES" or "NO".'
+                ),
+            }],
+        )
+        answer = resp.content[0].text.strip().upper()
+        if answer == 'YES':
+            logger.info(f"Semantic duplicate detected by Claude: '{new_title}'")
+            return True
+        return False
+    except Exception as e:
+        logger.warning(f"Semantic duplicate check failed: {e}")
+        return False
+
+
 def calculate_reading_time(text: str, words_per_minute: int = 200) -> int:
     """
     Calculate estimated reading time for text.
@@ -396,6 +444,11 @@ def generate_multiple_articles(
         article = generate_article(topic, **kwargs)
 
         if article and article.get('word_count', 0) >= 800:
+            # Post-generation semantic duplicate check using Claude Haiku
+            if existing_titles and _is_semantic_duplicate(article['title'], existing_titles):
+                logger.info(f"Skipping semantic duplicate: '{article['title']}'")
+                continue
+
             # Add source information
             article['source_data'] = topic_data
             articles.append(article)
