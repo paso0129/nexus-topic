@@ -268,12 +268,26 @@ def get_all_trending_topics(
     # Add Google Trends (may fail, but try anyway)
     google_trends = fetch_google_trends(markets=markets, limit=limit_per_source)
 
-    # Combine with HackerNews and Reddit first (higher priority)
+    # Normalize scores to 0-100 scale so different sources are comparable
+    def _normalize(trends: list) -> list:
+        if not trends:
+            return trends
+        scores = [t['score'] for t in trends]
+        max_score = max(scores) or 1
+        for t in trends:
+            t['score'] = round((t['score'] / max_score) * 100)
+        return trends
+
+    _normalize(hn_trends)
+    _normalize(reddit_trends)
+    _normalize(google_trends)
+
+    # Combine all sources
     all_trends.extend(hn_trends)
     all_trends.extend(reddit_trends)
     all_trends.extend(google_trends)
 
-    # Sort by score (descending) - HackerNews/Reddit scores are more reliable
+    # Sort by normalized score (descending)
     all_trends.sort(key=lambda x: x['score'], reverse=True)
 
     # Remove duplicates (keep highest score) - word overlap similarity check
