@@ -443,7 +443,7 @@ def generate_multiple_articles(
 
         article = generate_article(topic, **kwargs)
 
-        if article and article.get('word_count', 0) >= 800:
+        if article and article.get('word_count', 0) >= 500:
             # Post-generation semantic duplicate check using Claude Haiku
             if existing_titles and _is_semantic_duplicate(article['title'], existing_titles):
                 logger.info(f"Skipping semantic duplicate: '{article['title']}'")

@@ -22,8 +22,8 @@ automation:
   articles_per_run: 3
 
   # Article length (word count)
-  min_words: 1500
-  max_words: 2000
+  min_words: 800
+  max_words: 1000
 
   # Subreddits to monitor
   subreddits:
