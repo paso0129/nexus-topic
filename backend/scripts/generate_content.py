@@ -26,6 +26,57 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Stopwords to ignore during similarity comparison
+_STOPWORDS = frozenset([
+    'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+    'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+    'should', 'may', 'might', 'can', 'shall', 'to', 'of', 'in', 'for',
+    'on', 'with', 'at', 'by', 'from', 'as', 'into', 'about', 'between',
+    'through', 'after', 'before', 'during', 'and', 'but', 'or', 'not',
+    'no', 'nor', 'so', 'yet', 'both', 'either', 'neither', 'each',
+    'every', 'all', 'any', 'few', 'more', 'most', 'other', 'some',
+    'such', 'than', 'too', 'very', 'just', 'because', 'if', 'when',
+    'how', 'what', 'why', 'where', 'who', 'which', 'that', 'this',
+    'it', 'its', 'you', 'your', 'we', 'our', 'they', 'their', 'them',
+    'he', 'she', 'his', 'her', 'my', 'me', 'up', 'out', 'new',
+])
+
+
+def _is_similar(text_a: str, text_b: str, threshold: float = 0.5) -> bool:
+    """
+    Check if two texts are similar using word overlap (Jaccard similarity).
+    Ignores stopwords and short words for better topic-level comparison.
+
+    Args:
+        text_a: First text (lowercase)
+        text_b: Second text (lowercase)
+        threshold: Similarity threshold (0.0 to 1.0). Default 0.5 means
+                   50% of significant words must overlap.
+
+    Returns:
+        True if similarity >= threshold
+    """
+    def extract_words(text):
+        words = set(re.findall(r'[a-z0-9]+', text))
+        return {w for w in words if len(w) > 2 and w not in _STOPWORDS}
+
+    words_a = extract_words(text_a)
+    words_b = extract_words(text_b)
+
+    if not words_a or not words_b:
+        return False
+
+    intersection = words_a & words_b
+    union = words_a | words_b
+
+    similarity = len(intersection) / len(union) if union else 0
+
+    # Also check: if one set is a subset of the other
+    if words_a.issubset(words_b) or words_b.issubset(words_a):
+        return True
+
+    return similarity >= threshold
+
 
 def calculate_reading_time(text: str, words_per_minute: int = 200) -> int:
     """
@@ -254,6 +305,20 @@ def generate_multiple_articles(
     except Exception as e:
         logger.warning(f"Could not load existing articles: {str(e)}")
 
+    # Also load from local JSON index for fallback duplicate check
+    try:
+        import json
+        from pathlib import Path
+        index_path = Path(__file__).parent.parent.parent / 'frontend' / 'public' / 'articles' / 'index.json'
+        if index_path.exists():
+            with open(index_path, 'r') as f:
+                local_articles = json.load(f)
+            for a in local_articles:
+                existing_titles.add(a.get('title', '').lower())
+            logger.info(f"Loaded {len(local_articles)} local article titles for duplicate check")
+    except Exception as e:
+        logger.warning(f"Could not load local articles index: {str(e)}")
+
     articles = []
     used_topics = set()
     topic_index = 0
@@ -268,13 +333,19 @@ def generate_multiple_articles(
             logger.info(f"Skipping duplicate topic: {topic}")
             continue
 
-        # Skip if very similar title exists
+        # Skip if very similar topic exists (word overlap similarity)
         topic_lower = topic.lower()
         is_duplicate = False
         for existing_title in existing_titles:
-            # Check for exact match or high similarity
-            if topic_lower in existing_title or existing_title in topic_lower:
-                logger.info(f"Skipping similar topic (already exists): {topic}")
+            if _is_similar(topic_lower, existing_title, threshold=0.5):
+                logger.info(f"Skipping similar topic (similarity too high): '{topic}' ~ '{existing_title}'")
+                is_duplicate = True
+                break
+
+        # Also check against other topics in current batch
+        for used in used_topics:
+            if _is_similar(topic_lower, used, threshold=0.5):
+                logger.info(f"Skipping similar topic in batch: '{topic}' ~ '{used}'")
                 is_duplicate = True
                 break
 

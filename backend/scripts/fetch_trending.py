@@ -8,6 +8,7 @@ Collects trending topics from multiple sources:
 """
 
 import logging
+import re
 from typing import List, Dict, Optional
 from datetime import datetime
 import os
@@ -262,15 +263,31 @@ def get_all_trending_topics(
     # Sort by score (descending) - HackerNews/Reddit scores are more reliable
     all_trends.sort(key=lambda x: x['score'], reverse=True)
 
-    # Remove duplicates (keep highest score)
-    seen_keywords = set()
+    # Remove duplicates (keep highest score) - word overlap similarity check
     unique_trends = []
     for trend in all_trends:
         keyword_lower = trend['keyword'].lower()
-        # Check for similar keywords
-        if keyword_lower not in seen_keywords:
+        is_dup = False
+        for existing in unique_trends:
+            existing_lower = existing['keyword'].lower()
+            # Exact match
+            if keyword_lower == existing_lower:
+                is_dup = True
+                break
+            # Substring match
+            if keyword_lower in existing_lower or existing_lower in keyword_lower:
+                is_dup = True
+                break
+            # Word overlap: extract significant words (>2 chars) and check Jaccard similarity
+            words_a = {w for w in re.findall(r'[a-z0-9]+', keyword_lower) if len(w) > 2}
+            words_b = {w for w in re.findall(r'[a-z0-9]+', existing_lower) if len(w) > 2}
+            if words_a and words_b:
+                overlap = len(words_a & words_b) / len(words_a | words_b)
+                if overlap >= 0.5:
+                    is_dup = True
+                    break
+        if not is_dup:
             unique_trends.append(trend)
-            seen_keywords.add(keyword_lower)
 
     logger.info(f"Total trending topics collected: {len(unique_trends)} (from {len(all_trends)} raw)")
     logger.info(f"Sources: HackerNews={len(hn_trends)}, Reddit={len(reddit_trends)}, Google={len(google_trends)}")

@@ -70,4 +70,6 @@ temp/
 *.tmp
 
 # Frontend build artifacts
-frontend/
+frontend/.next/
+frontend/node_modules/
+frontend/.env.local
