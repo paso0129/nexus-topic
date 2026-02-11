@@ -2,6 +2,7 @@
 Unsplash Image Fetcher
 
 Fetches cover images from Unsplash API based on article keywords/topic.
+Uses Claude AI to generate visually descriptive search queries for better relevance.
 Follows Unsplash API guidelines: https://unsplash.com/documentation
 """
 
@@ -17,13 +18,63 @@ logger = logging.getLogger(__name__)
 UNSPLASH_API_URL = "https://api.unsplash.com/search/photos"
 
 
-def _build_search_query(article: Dict) -> str:
+def _build_search_query_with_ai(article: Dict) -> Optional[str]:
     """
-    Build a search query from article title and topic.
-    Uses title as primary source for better image relevance.
+    Use Claude AI to generate a visually descriptive Unsplash search query
+    that captures the essence of the article topic.
 
     Args:
-        article: Article dictionary with 'title', 'keywords', 'topic' fields
+        article: Article dictionary with 'title', 'meta_description', 'topic' fields
+
+    Returns:
+        AI-generated search query string, or None if unavailable
+    """
+    try:
+        from anthropic import Anthropic
+    except ImportError:
+        return None
+
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    if not api_key:
+        return None
+
+    try:
+        client = Anthropic(api_key=api_key)
+        title = article.get('title', '')
+        description = article.get('meta_description', '')
+        topic = article.get('topic', '')
+
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=50,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Generate a short Unsplash image search query (2-4 words) that would find "
+                    f"a visually relevant photo for this article. Focus on concrete, visual concepts "
+                    f"(objects, scenes, settings) rather than abstract ideas. Do NOT use brand names, "
+                    f"proper nouns, or product names - use generic visual descriptions instead.\n\n"
+                    f"Title: {title}\n"
+                    f"Topic: {topic}\n"
+                    f"Description: {description}\n\n"
+                    f"Reply with ONLY the search query, nothing else."
+                ),
+            }],
+        )
+        query = response.content[0].text.strip().strip('"').strip("'")
+        logger.info(f"  AI query: '{query}'")
+        return query
+    except Exception as e:
+        logger.warning(f"AI query generation failed: {e}")
+        return None
+
+
+def _build_search_query_fallback(article: Dict) -> str:
+    """
+    Fallback: build a search query from article title keywords.
+
+    Args:
+        article: Article dictionary with 'title', 'topic' fields
 
     Returns:
         Search query string
@@ -32,7 +83,6 @@ def _build_search_query(article: Dict) -> str:
 
     title = article.get('title', '')
 
-    # Extract key nouns from title (remove common filler words)
     stop = {'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'has', 'had',
             'do', 'does', 'did', 'will', 'would', 'could', 'should', 'can',
             'may', 'might', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
@@ -42,13 +92,23 @@ def _build_search_query(article: Dict) -> str:
     words = re.findall(r'[a-zA-Z0-9]+', title)
     key_words = [w for w in words if w.lower() not in stop and len(w) > 2]
 
-    # Use top 4 title words + topic for a focused query
     topic = article.get('topic', '')
-    parts = key_words[:4]
+    parts = key_words[:3]
     if topic and topic.lower() not in [p.lower() for p in parts]:
         parts.append(topic)
 
     return ' '.join(parts) if parts else title[:50]
+
+
+def _build_search_query(article: Dict) -> str:
+    """
+    Build a search query for Unsplash. Tries AI-generated query first,
+    falls back to keyword extraction.
+    """
+    ai_query = _build_search_query_with_ai(article)
+    if ai_query:
+        return ai_query
+    return _build_search_query_fallback(article)
 
 
 def fetch_unsplash_image(query: str) -> Optional[Dict[str, str]]:

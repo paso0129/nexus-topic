@@ -41,7 +41,8 @@ def fetch_google_trends(
     limit: int = 10
 ) -> List[Dict]:
     """
-    Fetch trending searches from Google Trends (using daily trends).
+    Fetch trending searches from Google Trends using the daily trends RSS/JSON API.
+    Does not depend on pytrends to avoid urllib3 compatibility issues.
 
     Args:
         markets: List of country codes (e.g., ['US', 'UK', 'CA'])
@@ -50,61 +51,44 @@ def fetch_google_trends(
     Returns:
         List of trending topics with metadata
     """
-    if TrendReq is None:
-        logger.error("pytrends is not installed. Install with: pip install pytrends")
-        return []
-
     logger.info(f"Fetching Google Trends for markets: {markets}")
     trends_list = []
 
-    try:
-        pytrends = TrendReq(hl='en-US', tz=360, timeout=(10, 25), retries=2, backoff_factor=0.1)
+    # Google Trends daily trends API (no auth needed)
+    DAILY_TRENDS_URL = "https://trends.google.com/trending/rss?geo={geo}"
 
-        for market in markets:
-            try:
-                # Use realtime trending searches (more reliable)
-                try:
-                    trending_data = pytrends.realtime_trending_searches(pn=market)
+    for market in markets:
+        try:
+            resp = requests.get(
+                DAILY_TRENDS_URL.format(geo=market),
+                headers={'User-Agent': 'Mozilla/5.0'},
+                timeout=15,
+            )
+            resp.raise_for_status()
 
-                    if not trending_data.empty:
-                        for idx, row in trending_data.head(limit).iterrows():
-                            keyword = row.get('title', '') or row.get('entityNames', [''])[0]
-                            if keyword:
-                                trends_list.append({
-                                    'keyword': keyword,
-                                    'source': 'google_trends',
-                                    'score': limit - len(trends_list),
-                                    'region': market,
-                                    'timestamp': datetime.now().isoformat(),
-                                    'url': row.get('newsUrl', '')
-                                })
-                        logger.info(f"Fetched {len(trending_data)} realtime trends from {market}")
-                        continue
-                except Exception as e:
-                    logger.warning(f"Realtime trends failed for {market}: {str(e)}, trying daily trends...")
+            # Parse RSS XML for titles
+            import xml.etree.ElementTree as ET
+            root = ET.fromstring(resp.text)
+            items = root.findall('.//item/title')
 
-                # Fallback to daily search trends
-                try:
-                    daily_trends = pytrends.today_searches(pn=market)
-                    if not daily_trends.empty:
-                        for idx, keyword in enumerate(daily_trends[0][:limit]):
-                            trends_list.append({
-                                'keyword': keyword,
-                                'source': 'google_trends',
-                                'score': limit - idx,
-                                'region': market,
-                                'timestamp': datetime.now().isoformat()
-                            })
-                        logger.info(f"Fetched {len(daily_trends)} daily trends from {market}")
-                except Exception as e:
-                    logger.warning(f"Daily trends also failed for {market}: {str(e)}")
+            count = 0
+            for idx, item in enumerate(items[:limit]):
+                keyword = item.text
+                if keyword:
+                    trends_list.append({
+                        'keyword': keyword,
+                        'source': 'google_trends',
+                        'score': limit - idx,
+                        'region': market,
+                        'timestamp': datetime.now().isoformat(),
+                    })
+                    count += 1
 
-            except Exception as e:
-                logger.error(f"Error fetching trends for {market}: {str(e)}")
-                continue
+            logger.info(f"Fetched {count} trends from Google Trends ({market})")
 
-    except Exception as e:
-        logger.error(f"Error initializing Google Trends: {str(e)}")
+        except Exception as e:
+            logger.warning(f"Google Trends failed for {market}: {str(e)}")
+            continue
 
     logger.info(f"Total trends fetched from Google: {len(trends_list)}")
     return trends_list
@@ -115,7 +99,8 @@ def fetch_reddit_trending(
     limit: int = 10
 ) -> List[Dict]:
     """
-    Fetch trending posts from Reddit.
+    Fetch trending posts from Reddit using the public JSON API.
+    Falls back to praw if credentials are available.
 
     Args:
         subreddits: List of subreddit names
@@ -124,49 +109,77 @@ def fetch_reddit_trending(
     Returns:
         List of trending topics with metadata
     """
-    if praw is None:
-        logger.error("praw is not installed. Install with: pip install praw")
-        return []
-
-    client_id = os.getenv('REDDIT_CLIENT_ID')
-    client_secret = os.getenv('REDDIT_CLIENT_SECRET')
-
-    if not client_id or not client_secret:
-        logger.warning("Reddit credentials not found in environment variables")
-        return []
-
     logger.info(f"Fetching Reddit trends from: {subreddits}")
     trends_list = []
 
-    try:
-        reddit = praw.Reddit(
-            client_id=client_id,
-            client_secret=client_secret,
-            user_agent='WordPress AdSense Automation Bot 1.0'
-        )
+    # Try praw first if credentials exist
+    client_id = os.getenv('REDDIT_CLIENT_ID')
+    client_secret = os.getenv('REDDIT_CLIENT_SECRET')
 
-        for subreddit_name in subreddits:
-            try:
-                subreddit = reddit.subreddit(subreddit_name)
+    if praw and client_id and client_secret:
+        try:
+            reddit = praw.Reddit(
+                client_id=client_id,
+                client_secret=client_secret,
+                user_agent='NexusTopic Bot 1.0'
+            )
+            for subreddit_name in subreddits:
+                try:
+                    subreddit = reddit.subreddit(subreddit_name)
+                    for idx, post in enumerate(subreddit.hot(limit=limit)):
+                        trends_list.append({
+                            'keyword': post.title,
+                            'source': 'reddit',
+                            'score': post.score,
+                            'region': 'global',
+                            'url': f'https://reddit.com{post.permalink}',
+                            'timestamp': datetime.now().isoformat()
+                        })
+                    logger.info(f"Fetched {limit} posts from r/{subreddit_name} (praw)")
+                except Exception as e:
+                    logger.error(f"Error fetching from r/{subreddit_name}: {str(e)}")
+            if trends_list:
+                logger.info(f"Total trends fetched from Reddit: {len(trends_list)}")
+                return trends_list
+        except Exception as e:
+            logger.warning(f"praw failed: {str(e)}, falling back to public JSON API")
 
-                for idx, post in enumerate(subreddit.hot(limit=limit)):
-                    trends_list.append({
-                        'keyword': post.title,
-                        'source': f'reddit_{subreddit_name}',
-                        'score': post.score,
-                        'region': 'global',
-                        'url': f'https://reddit.com{post.permalink}',
-                        'timestamp': datetime.now().isoformat()
-                    })
+    # Fallback: public JSON API (no auth needed)
+    import time as _time
+    headers = {'User-Agent': 'NexusTopic/1.0'}
 
-                logger.info(f"Fetched {limit} posts from r/{subreddit_name}")
+    for subreddit_name in subreddits:
+        try:
+            resp = requests.get(
+                f'https://www.reddit.com/r/{subreddit_name}/hot.json?limit={limit}',
+                headers=headers,
+                timeout=15,
+            )
+            resp.raise_for_status()
+            data = resp.json()
 
-            except Exception as e:
-                logger.error(f"Error fetching from r/{subreddit_name}: {str(e)}")
-                continue
+            posts = data.get('data', {}).get('children', [])
+            count = 0
+            for post_wrapper in posts:
+                post = post_wrapper.get('data', {})
+                if post.get('stickied'):
+                    continue
+                trends_list.append({
+                    'keyword': post.get('title', ''),
+                    'source': 'reddit',
+                    'score': post.get('score', 0),
+                    'region': 'global',
+                    'url': f"https://reddit.com{post.get('permalink', '')}",
+                    'timestamp': datetime.now().isoformat()
+                })
+                count += 1
 
-    except Exception as e:
-        logger.error(f"Error initializing Reddit client: {str(e)}")
+            logger.info(f"Fetched {count} posts from r/{subreddit_name} (JSON API)")
+            _time.sleep(1)  # Rate limit: 1 req/sec for unauthenticated
+
+        except Exception as e:
+            logger.error(f"Error fetching from r/{subreddit_name}: {str(e)}")
+            continue
 
     logger.info(f"Total trends fetched from Reddit: {len(trends_list)}")
     return trends_list

@@ -346,6 +346,56 @@ class DatabaseClient:
             logger.error(f"Failed to delete article '{slug}': {str(e)}")
             return False
 
+    def list_trending_keywords(self, limit: int = 200) -> List[str]:
+        """
+        List recent trending keywords from the trending_sources table.
+
+        Args:
+            limit: Maximum number of keywords to return
+
+        Returns:
+            List of keyword strings
+        """
+        try:
+            def fetch_keywords():
+                return self.client.table('trending_sources') \
+                    .select('keyword') \
+                    .order('created_at', desc=True) \
+                    .limit(limit) \
+                    .execute()
+
+            result = self._retry_operation(fetch_keywords)
+            keywords = [r['keyword'] for r in result.data]
+            logger.info(f"Loaded {len(keywords)} trending keywords")
+            return keywords
+
+        except Exception as e:
+            logger.error(f"Failed to list trending keywords: {str(e)}")
+            return []
+
+    def list_articles_without_images(self) -> List[Dict[str, Any]]:
+        """
+        List published articles that have no featured_image set.
+
+        Returns:
+            List of article dicts missing featured images
+        """
+        try:
+            def fetch_articles():
+                return self.client.table('articles') \
+                    .select('*') \
+                    .eq('published', True) \
+                    .or_('featured_image.is.null,featured_image.eq.') \
+                    .execute()
+
+            result = self._retry_operation(fetch_articles)
+            logger.info(f"Found {len(result.data)} articles without images")
+            return result.data
+
+        except Exception as e:
+            logger.error(f"Failed to list articles without images: {str(e)}")
+            return []
+
     def get_article_count(self, published_only: bool = True) -> int:
         """
         Get total count of articles

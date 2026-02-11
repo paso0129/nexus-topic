@@ -42,23 +42,23 @@ _STOPWORDS = frozenset([
 ])
 
 
-def _is_similar(text_a: str, text_b: str, threshold: float = 0.5) -> bool:
+def _is_similar(text_a: str, text_b: str, threshold: float = 0.35) -> bool:
     """
     Check if two texts are similar using word overlap (Jaccard similarity).
-    Ignores stopwords and short words for better topic-level comparison.
+    Ignores stopwords but keeps short significant words (e.g. "AI").
 
     Args:
         text_a: First text (lowercase)
         text_b: Second text (lowercase)
-        threshold: Similarity threshold (0.0 to 1.0). Default 0.5 means
-                   50% of significant words must overlap.
+        threshold: Similarity threshold (0.0 to 1.0). Default 0.35 to catch
+                   short keyword vs long title comparisons.
 
     Returns:
         True if similarity >= threshold
     """
     def extract_words(text):
         words = set(re.findall(r'[a-z0-9]+', text))
-        return {w for w in words if len(w) > 2 and w not in _STOPWORDS}
+        return {w for w in words if len(w) > 1 and w not in _STOPWORDS}
 
     words_a = extract_words(text_a)
     words_b = extract_words(text_b)
@@ -315,8 +315,9 @@ def generate_multiple_articles(
     """
     logger.info(f"Generating {articles_count} articles from {len(topics)} topics")
 
-    # Get existing articles to avoid duplicates
+    # Get existing articles and trending keywords to avoid duplicates
     existing_titles = set()
+    existing_keywords = set()
     try:
         from scripts.database import get_db_client, is_supabase_enabled
         if is_supabase_enabled():
@@ -324,6 +325,11 @@ def generate_multiple_articles(
             existing_articles = db.list_articles(limit=100, published_only=False)
             existing_titles = {a.get('title', '').lower() for a in existing_articles}
             logger.info(f"Loaded {len(existing_titles)} existing article titles for duplicate check")
+
+            # Load existing trending keywords for keyword-to-keyword comparison
+            db_keywords = db.list_trending_keywords(limit=200)
+            existing_keywords = {k.lower() for k in db_keywords}
+            logger.info(f"Loaded {len(existing_keywords)} existing trending keywords for duplicate check")
     except Exception as e:
         logger.warning(f"Could not load existing articles: {str(e)}")
 
@@ -358,18 +364,29 @@ def generate_multiple_articles(
         # Skip if very similar topic exists (word overlap similarity)
         topic_lower = topic.lower()
         is_duplicate = False
-        for existing_title in existing_titles:
-            if _is_similar(topic_lower, existing_title, threshold=0.5):
-                logger.info(f"Skipping similar topic (similarity too high): '{topic}' ~ '{existing_title}'")
+
+        # 1. Compare new topic keyword against existing trending keywords (keyword-to-keyword)
+        for existing_kw in existing_keywords:
+            if _is_similar(topic_lower, existing_kw, threshold=0.4):
+                logger.info(f"Skipping similar keyword (keyword match): '{topic}' ~ '{existing_kw}'")
                 is_duplicate = True
                 break
 
-        # Also check against other topics in current batch
-        for used in used_topics:
-            if _is_similar(topic_lower, used, threshold=0.5):
-                logger.info(f"Skipping similar topic in batch: '{topic}' ~ '{used}'")
-                is_duplicate = True
-                break
+        # 2. Compare against existing article titles
+        if not is_duplicate:
+            for existing_title in existing_titles:
+                if _is_similar(topic_lower, existing_title, threshold=0.35):
+                    logger.info(f"Skipping similar topic (title match): '{topic}' ~ '{existing_title}'")
+                    is_duplicate = True
+                    break
+
+        # 3. Also check against other topics in current batch
+        if not is_duplicate:
+            for used in used_topics:
+                if _is_similar(topic_lower, used, threshold=0.4):
+                    logger.info(f"Skipping similar topic in batch: '{topic}' ~ '{used}'")
+                    is_duplicate = True
+                    break
 
         if is_duplicate:
             continue

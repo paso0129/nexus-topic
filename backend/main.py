@@ -24,6 +24,7 @@ from scripts.generate_content import generate_multiple_articles
 from scripts.optimize_adsense import optimize_ad_placement, validate_adsense_config
 from scripts.save_article import save_multiple_articles
 from scripts.fetch_images import fetch_images_for_articles
+from scripts.reclassify import classify_articles
 
 # Import database utilities
 try:
@@ -253,10 +254,22 @@ Examples:
         logger.error(f"Error generating articles: {e}")
         sys.exit(1)
 
-    # STEP 2.5: Fetch Unsplash Cover Images
+    # STEP 2.5: Verify & Correct Categories
+    logger.info("\n" + "=" * 80)
+    logger.info("STEP 2.5: Verifying Article Categories with Claude Haiku")
+    logger.info("=" * 80)
+
+    try:
+        articles = classify_articles(articles)
+        logger.info("✓ Category verification complete")
+    except Exception as e:
+        logger.warning(f"Category verification failed: {e}")
+        logger.warning("Continuing with original categories...")
+
+    # STEP 2.6: Fetch Unsplash Cover Images
     if not args.no_images:
         logger.info("\n" + "=" * 80)
-        logger.info("STEP 2.5: Fetching Unsplash Cover Images")
+        logger.info("STEP 2.6: Fetching Unsplash Cover Images")
         logger.info("=" * 80)
 
         try:

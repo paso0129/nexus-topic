@@ -13,6 +13,8 @@ from typing import Dict, List, Optional
 from datetime import datetime
 from pathlib import Path
 
+import requests
+
 # Import database client
 try:
     from scripts.database import get_db_client, is_supabase_enabled
@@ -290,7 +292,35 @@ def save_multiple_articles(
     success_count = sum(1 for r in results if r['success'])
     logger.info(f"Saved {success_count}/{len(articles)} articles successfully")
 
+    # Trigger Next.js on-demand revalidation
+    if success_count > 0:
+        _trigger_revalidation()
+
     return results
+
+
+def _trigger_revalidation() -> None:
+    """Trigger Next.js on-demand revalidation to clear ISR cache."""
+    revalidation_url = os.getenv("REVALIDATION_URL")
+    revalidation_secret = os.getenv("REVALIDATION_SECRET")
+
+    if not revalidation_url or not revalidation_secret:
+        logger.debug("REVALIDATION_URL or REVALIDATION_SECRET not set, skipping revalidation")
+        return
+
+    try:
+        resp = requests.post(
+            revalidation_url,
+            headers={"Authorization": f"Bearer {revalidation_secret}"},
+            json={},
+            timeout=10,
+        )
+        if resp.ok:
+            logger.info(f"Revalidation triggered successfully: {resp.json()}")
+        else:
+            logger.warning(f"Revalidation failed ({resp.status_code}): {resp.text}")
+    except Exception as e:
+        logger.warning(f"Revalidation request failed (non-blocking): {e}")
 
 
 def get_all_articles(
