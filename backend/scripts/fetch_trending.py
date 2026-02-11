@@ -74,7 +74,7 @@ def fetch_google_trends(
             count = 0
             for idx, item in enumerate(items[:limit]):
                 keyword = item.text
-                if keyword:
+                if keyword and len(keyword.split()) >= 3:
                     trends_list.append({
                         'keyword': keyword,
                         'source': 'google_trends',

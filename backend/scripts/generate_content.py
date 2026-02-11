@@ -395,12 +395,14 @@ def generate_multiple_articles(
 
         article = generate_article(topic, **kwargs)
 
-        if article:
+        if article and article.get('word_count', 0) >= 800:
             # Add source information
             article['source_data'] = topic_data
             articles.append(article)
             used_topics.add(topic.lower())
             existing_titles.add(article['title'].lower())
+        elif article:
+            logger.warning(f"Article too short ({article.get('word_count', 0)} words), skipping: {topic}")
         else:
             logger.warning(f"Failed to generate article for: {topic}")
 
