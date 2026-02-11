@@ -318,7 +318,7 @@ def generate_multiple_articles(
     # Get existing articles to avoid duplicates
     existing_titles = set()
     try:
-        from database import get_db_client, is_supabase_enabled
+        from scripts.database import get_db_client, is_supabase_enabled
         if is_supabase_enabled():
             db = get_db_client()
             existing_articles = db.list_articles(limit=100, published_only=False)

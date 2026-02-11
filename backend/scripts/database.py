@@ -86,6 +86,7 @@ class DatabaseClient:
         topic: Optional[str] = None,
         published: bool = True,
         featured_image: Optional[str] = None,
+        image_attribution: Optional[Dict[str, str]] = None,
         author: Optional[Dict[str, str]] = None,
         source_data: Optional[Dict[str, Any]] = None
     ) -> Optional[Dict[str, Any]]:
@@ -103,6 +104,7 @@ class DatabaseClient:
             topic: Article topic/category
             published: Whether article is published
             featured_image: URL to featured image
+            image_attribution: Unsplash photographer attribution dict
             author: Author information dict
             source_data: Trending source information dict
 
@@ -122,6 +124,7 @@ class DatabaseClient:
                 'topic': topic,
                 'published': published,
                 'featured_image': featured_image,
+                'image_attribution': image_attribution or {},
                 'author': author or {
                     'name': 'NexusTopic Editorial Team',
                     'bio': 'Delivering the latest trending topics and insights'

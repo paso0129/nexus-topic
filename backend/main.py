@@ -23,6 +23,7 @@ from scripts.fetch_trending import get_all_trending_topics
 from scripts.generate_content import generate_multiple_articles
 from scripts.optimize_adsense import optimize_ad_placement, validate_adsense_config
 from scripts.save_article import save_multiple_articles
+from scripts.fetch_images import fetch_images_for_articles
 
 # Import database utilities
 try:
@@ -92,6 +93,12 @@ def validate_environment() -> None:
             sys.exit(1)
     else:
         logger.info("⊘ Supabase not enabled, using JSON-only mode")
+
+    # Check Unsplash API key (optional)
+    if os.getenv('UNSPLASH_ACCESS_KEY'):
+        logger.info("✓ Unsplash API key found")
+    else:
+        logger.info("⊘ Unsplash API key not set (images will be skipped)")
 
     logger.info("Environment validation complete\n")
 
@@ -164,6 +171,12 @@ Examples:
     )
 
     parser.add_argument(
+        '--no-images',
+        action='store_true',
+        help='Skip Unsplash image fetching'
+    )
+
+    parser.add_argument(
         '--output',
         type=str,
         default='../frontend/public/articles',
@@ -176,6 +189,7 @@ Examples:
     logger.info("AdSense Blog Automation System (Next.js)")
     logger.info("=" * 80)
     logger.info(f"Articles to generate: {args.articles}")
+    logger.info(f"Unsplash images: {not args.no_images}")
     logger.info(f"AdSense optimization: {not args.no_adsense}")
     logger.info(f"Output directory: {args.output}")
     logger.info("=" * 80)
@@ -238,6 +252,22 @@ Examples:
     except Exception as e:
         logger.error(f"Error generating articles: {e}")
         sys.exit(1)
+
+    # STEP 2.5: Fetch Unsplash Cover Images
+    if not args.no_images:
+        logger.info("\n" + "=" * 80)
+        logger.info("STEP 2.5: Fetching Unsplash Cover Images")
+        logger.info("=" * 80)
+
+        try:
+            articles = fetch_images_for_articles(articles)
+            images_found = sum(1 for a in articles if a.get('featured_image'))
+            logger.info(f"✓ Images fetched: {images_found}/{len(articles)} articles have cover images")
+        except Exception as e:
+            logger.warning(f"Error fetching images: {e}")
+            logger.warning("Continuing without cover images...")
+    else:
+        logger.info("\n⊘ Skipping Unsplash image fetch (--no-images flag)")
 
     # STEP 3: Optimize with AdSense
     if not args.no_adsense:

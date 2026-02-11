@@ -99,6 +99,7 @@ def save_article_to_database(article: Dict) -> bool:
             topic=article.get('topic', ''),
             published=True,
             featured_image=article.get('featured_image', ''),
+            image_attribution=article.get('image_attribution', {}),
             author={
                 'name': 'NexusTopic Editorial Team',
                 'bio': 'Delivering the latest trending topics and insights'
@@ -169,6 +170,7 @@ def save_article(
                 'updated_at': datetime.now().isoformat(),
                 'published': True,
                 'featured_image': article.get('featured_image', ''),
+                'image_attribution': article.get('image_attribution', {}),
                 'source_data': article.get('source_data', {})
             }
 
