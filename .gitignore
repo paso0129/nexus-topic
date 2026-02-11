@@ -69,7 +69,5 @@ tmp/
 temp/
 *.tmp
 
-# Frontend build artifacts
-frontend/.next/
-frontend/node_modules/
-frontend/.env.local
+# Frontend (separate repo: nexus-topic-frontend)
+frontend/

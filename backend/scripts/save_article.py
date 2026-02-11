@@ -169,10 +169,6 @@ def save_article(
                 'updated_at': datetime.now().isoformat(),
                 'published': True,
                 'featured_image': article.get('featured_image', ''),
-                'author': {
-                    'name': 'AI Content Generator',
-                    'bio': 'Automated content powered by Claude AI'
-                },
                 'source_data': article.get('source_data', {})
             }
 

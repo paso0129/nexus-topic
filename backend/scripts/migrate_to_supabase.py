@@ -172,10 +172,6 @@ def migrate_article(article: Dict, db, dry_run: bool = False) -> bool:
         topic=article.get('topic', ''),
         published=article.get('published', True),
         featured_image=article.get('featured_image', ''),
-        author=article.get('author', {
-            'name': 'AI Content Generator',
-            'bio': 'Automated content powered by Claude AI'
-        }),
         source_data=source_data if source_data else None
     )
 

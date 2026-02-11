@@ -14,7 +14,7 @@ CREATE TABLE articles (
   topic TEXT,
   published BOOLEAN DEFAULT true,
   featured_image TEXT,
-  author JSONB DEFAULT '{"name": "AI Content Generator", "bio": "Automated content powered by Claude AI"}',
+  author JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
   search_vector TSVECTOR GENERATED ALWAYS AS (
