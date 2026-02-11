@@ -125,6 +125,12 @@ def extract_keywords(content: str, max_keywords: int = 10) -> list:
     return keywords
 
 
+VALID_CATEGORIES = [
+    'AI', 'BIZ & IT', 'CARS', 'CULTURE', 'GAMING', 'HEALTH',
+    'POLICY', 'SCIENCE', 'SECURITY', 'SPACE', 'TECH',
+]
+
+
 def generate_article(
     topic: str,
     min_words: int = 1500,
@@ -208,10 +214,13 @@ Do NOT include <html>, <head>, or <body> tags - just the article content.
 Also provide:
 - A compelling news headline (under 60 characters) that captures the trending aspect
 - A meta description (under 160 characters) that explains why this is trending
+- A CATEGORY from this exact list: AI, BIZ & IT, CARS, CULTURE, GAMING, HEALTH, POLICY, SCIENCE, SECURITY, SPACE, TECH
+  Choose the single best-fitting category based on the article's primary subject matter.
 
 Format your response as:
 TITLE: [Your headline here]
 META: [Your meta description here]
+CATEGORY: [One category from the list above]
 CONTENT:
 [Your HTML content here]
 """
@@ -233,7 +242,8 @@ CONTENT:
 
         # Parse the response
         title_match = re.search(r'TITLE:\s*(.+?)(?:\n|META:)', response_text, re.IGNORECASE)
-        meta_match = re.search(r'META:\s*(.+?)(?:\n|CONTENT:)', response_text, re.IGNORECASE)
+        meta_match = re.search(r'META:\s*(.+?)(?:\n|CATEGORY:|CONTENT:)', response_text, re.IGNORECASE)
+        category_match = re.search(r'CATEGORY:\s*(.+?)(?:\n|CONTENT:)', response_text, re.IGNORECASE)
         content_match = re.search(r'CONTENT:\s*(.+)', response_text, re.IGNORECASE | re.DOTALL)
 
         if not all([title_match, meta_match, content_match]):
@@ -246,6 +256,17 @@ CONTENT:
             title = title_match.group(1).strip()
             meta_description = meta_match.group(1).strip()
             content = content_match.group(1).strip()
+
+        # Extract and validate category
+        category = 'TECH'  # default fallback
+        if category_match:
+            raw_category = category_match.group(1).strip().upper()
+            if raw_category in VALID_CATEGORIES:
+                category = raw_category
+            else:
+                logger.warning(f"Invalid category '{raw_category}', defaulting to TECH")
+        else:
+            logger.warning("No category found in response, defaulting to TECH")
 
         # Calculate metrics
         word_count = len(re.sub(r'<[^>]+>', '', content).split())
@@ -260,7 +281,8 @@ CONTENT:
             'reading_time': reading_time,
             'word_count': word_count,
             'timestamp': datetime.now().isoformat(),
-            'topic': topic
+            'topic': category,
+            'trending_keyword': topic,
         }
 
         logger.info(f"Article generated successfully")
