@@ -58,11 +58,15 @@ def validate_environment() -> None:
 
     logger.info("\nValidating environment...")
 
-    # Check Anthropic API key
-    if not os.getenv('ANTHROPIC_API_KEY'):
-        logger.error("ANTHROPIC_API_KEY not set in environment")
+    # Check Gemini CLI availability
+    import shutil
+    if shutil.which('gemini'):
+        logger.info("✓ Gemini CLI found")
+    elif os.getenv('GOOGLE_API_KEY'):
+        logger.info("✓ Google API key found (Gemini CLI not available, using API)")
+    else:
+        logger.error("Neither Gemini CLI nor GOOGLE_API_KEY available")
         sys.exit(1)
-    logger.info("✓ Anthropic API key found")
 
     # Check Supabase configuration
     if SUPABASE_AVAILABLE and is_supabase_enabled():
@@ -231,7 +235,7 @@ Examples:
 
     # STEP 2: Generate Articles
     logger.info("\n" + "=" * 80)
-    logger.info("STEP 2: Generating Articles with Claude AI")
+    logger.info("STEP 2: Generating Articles with Gemini")
     logger.info("=" * 80)
 
     try:
@@ -256,7 +260,7 @@ Examples:
 
     # STEP 2.5: Verify & Correct Categories
     logger.info("\n" + "=" * 80)
-    logger.info("STEP 2.5: Verifying Article Categories with Claude Haiku")
+    logger.info("STEP 2.5: Verifying Article Categories with Gemini")
     logger.info("=" * 80)
 
     try:

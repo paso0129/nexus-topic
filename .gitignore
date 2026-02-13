@@ -71,3 +71,6 @@ temp/
 
 # Frontend (separate repo: nexus-topic-frontend)
 frontend/
+
+# Claude Code
+CLAUDE.md

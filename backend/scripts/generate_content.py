@@ -1,19 +1,24 @@
 """
-Content Generator using Claude AI
+Content Generator using Gemini
 
-Generates SEO-optimized blog articles using Anthropic's Claude API.
+Generates SEO-optimized blog articles using:
+- Primary: Gemini 2.5 Pro via CLI (Google account auth, no API quota)
+- Fallback: Gemini 3 Flash Preview via API (free tier)
 """
 
 import logging
 import os
 import re
+import subprocess
+import shutil
+import time
 from typing import Dict, Optional
 from datetime import datetime
 
 try:
-    from anthropic import Anthropic
+    import google.generativeai as genai
 except ImportError:
-    Anthropic = None
+    genai = None
 
 from dotenv import load_dotenv
 
@@ -41,21 +46,54 @@ _STOPWORDS = frozenset([
     'he', 'she', 'his', 'her', 'my', 'me', 'up', 'out', 'new',
 ])
 
+# Gemini CLI path (cached)
+_gemini_cli_path = shutil.which('gemini')
+
+
+def _generate_with_gemini_cli(prompt: str, model: str = "gemini-2.5-pro") -> str:
+    """Generate content using Gemini CLI (uses Google account auth, no API quota)."""
+    if not _gemini_cli_path:
+        raise RuntimeError("Gemini CLI not installed")
+
+    logger.info(f"Calling Gemini CLI ({model})...")
+    result = subprocess.run(
+        [_gemini_cli_path, '-m', model, '-p', prompt],
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Gemini CLI error: {result.stderr.strip()}")
+
+    # Filter out CLI status lines
+    lines = result.stdout.strip().split('\n')
+    content_lines = [l for l in lines
+                     if not l.startswith('Loaded cached')
+                     and not l.startswith('Hook registry')]
+    return '\n'.join(content_lines)
+
+
+def _generate_with_gemini_api(prompt: str, model_name: str = "gemini-3-flash-preview") -> str:
+    """Generate content using Google Gemini API (free tier)."""
+    api_key = os.getenv('GOOGLE_API_KEY')
+    if not api_key or not genai:
+        raise RuntimeError("Gemini API not available")
+
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel(model_name)
+    logger.info(f"Calling Gemini API ({model_name})...")
+    response = model.generate_content(
+        prompt,
+        generation_config=genai.types.GenerationConfig(
+            temperature=0.7,
+            max_output_tokens=4096,
+        )
+    )
+    return response.text
+
 
 def _is_similar(text_a: str, text_b: str, threshold: float = 0.35) -> bool:
-    """
-    Check if two texts are similar using word overlap (Jaccard similarity).
-    Ignores stopwords but keeps short significant words (e.g. "AI").
-
-    Args:
-        text_a: First text (lowercase)
-        text_b: Second text (lowercase)
-        threshold: Similarity threshold (0.0 to 1.0). Default 0.35 to catch
-                   short keyword vs long title comparisons.
-
-    Returns:
-        True if similarity >= threshold
-    """
+    """Check if two texts are similar using word overlap (Jaccard similarity)."""
     def extract_words(text):
         words = set(re.findall(r'[a-z0-9]+', text))
         return {w for w in words if len(w) > 1 and w not in _STOPWORDS}
@@ -71,7 +109,6 @@ def _is_similar(text_a: str, text_b: str, threshold: float = 0.35) -> bool:
 
     similarity = len(intersection) / len(union) if union else 0
 
-    # Also check: if one set is a subset of the other
     if words_a.issubset(words_b) or words_b.issubset(words_a):
         return True
 
@@ -79,47 +116,39 @@ def _is_similar(text_a: str, text_b: str, threshold: float = 0.35) -> bool:
 
 
 def _is_semantic_duplicate(new_title: str, existing_titles: set) -> bool:
-    """
-    Use Claude Haiku to check if a generated article title covers the same
-    topic as any existing article. Catches duplicates that word-overlap
-    similarity misses (e.g. 'Ring Surveillance Dragnet' vs
-    'Ring Doorbell Network Sparks Privacy Outcry').
-
-    Args:
-        new_title: The newly generated article title
-        existing_titles: Set of existing article titles (lowercase)
-
-    Returns:
-        True if the new title is a semantic duplicate
-    """
+    """Use LLM to check if a generated article title covers the same topic as any existing article."""
     try:
-        api_key = os.getenv('ANTHROPIC_API_KEY')
-        if not api_key:
-            return False
-
-        from anthropic import Anthropic
-        client = Anthropic(api_key=api_key)
-
-        # Send top 50 existing titles to keep prompt short
         titles_list = '\n'.join(list(existing_titles)[:50])
-
-        resp = client.messages.create(
-            model='claude-haiku-4-5-20251001',
-            max_tokens=5,
-            messages=[{
-                'role': 'user',
-                'content': (
-                    f'Does this new article title cover the SAME topic as any existing article?\n\n'
-                    f'New title: {new_title}\n\n'
-                    f'Existing titles:\n{titles_list}\n\n'
-                    f'Reply ONLY "YES" or "NO".'
-                ),
-            }],
+        prompt = (
+            f'Does this new article title cover the SAME topic as any existing article?\n\n'
+            f'New title: {new_title}\n\n'
+            f'Existing titles:\n{titles_list}\n\n'
+            f'Reply ONLY "YES" or "NO".'
         )
-        answer = resp.content[0].text.strip().upper()
-        if answer == 'YES':
-            logger.info(f"Semantic duplicate detected by Claude: '{new_title}'")
-            return True
+
+        # Try Gemini API first (fast, lightweight task)
+        try:
+            resp_text = _generate_with_gemini_api(prompt)
+            answer = resp_text.strip().upper()
+            time.sleep(3)
+            if answer == 'YES':
+                logger.info(f"Semantic duplicate detected (Gemini API): '{new_title}'")
+                return True
+            return False
+        except Exception as e:
+            logger.warning(f"Gemini API dedup check failed: {e}")
+
+        # Fallback to Gemini CLI
+        try:
+            resp_text = _generate_with_gemini_cli(prompt, model="gemini-2.5-flash")
+            answer = resp_text.strip().upper()
+            if answer == 'YES':
+                logger.info(f"Semantic duplicate detected (Gemini CLI): '{new_title}'")
+                return True
+            return False
+        except Exception as e:
+            logger.warning(f"Gemini CLI dedup check failed: {e}")
+
         return False
     except Exception as e:
         logger.warning(f"Semantic duplicate check failed: {e}")
@@ -127,17 +156,7 @@ def _is_semantic_duplicate(new_title: str, existing_titles: set) -> bool:
 
 
 def calculate_reading_time(text: str, words_per_minute: int = 200) -> int:
-    """
-    Calculate estimated reading time for text.
-
-    Args:
-        text: Article text (HTML or plain text)
-        words_per_minute: Average reading speed
-
-    Returns:
-        Reading time in minutes
-    """
-    # Remove HTML tags for accurate word count
+    """Calculate estimated reading time for text."""
     clean_text = re.sub(r'<[^>]+>', '', text)
     word_count = len(clean_text.split())
     reading_time = max(1, round(word_count / words_per_minute))
@@ -145,28 +164,14 @@ def calculate_reading_time(text: str, words_per_minute: int = 200) -> int:
 
 
 def extract_keywords(content: str, max_keywords: int = 10) -> list:
-    """
-    Extract potential keywords from content.
-
-    Args:
-        content: Article content
-        max_keywords: Maximum number of keywords to return
-
-    Returns:
-        List of keywords
-    """
-    # Remove HTML tags
+    """Extract potential keywords from content."""
     clean_text = re.sub(r'<[^>]+>', '', content)
-
-    # Simple keyword extraction (you might want to use NLP libraries for better results)
     words = re.findall(r'\b[a-z]{4,}\b', clean_text.lower())
 
-    # Count word frequency
     word_freq = {}
     for word in words:
         word_freq[word] = word_freq.get(word, 0) + 1
 
-    # Get top keywords
     sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
     keywords = [word for word, freq in sorted_words[:max_keywords]]
 
@@ -179,52 +184,9 @@ VALID_CATEGORIES = [
 ]
 
 
-def generate_article(
-    topic: str,
-    min_words: int = 1500,
-    max_words: int = 2000,
-    target_audience: str = "North American and European readers",
-    model: str = "claude-sonnet-4-5-20250929"
-) -> Dict:
-    """
-    Generate a complete SEO-optimized article using Claude AI.
-
-    Args:
-        topic: Topic or keyword to write about
-        min_words: Minimum word count
-        max_words: Maximum word count
-        target_audience: Target reader demographic
-        model: Claude model to use
-
-    Returns:
-        Dictionary containing:
-        {
-            'title': str,
-            'meta_description': str,
-            'content': str (HTML),
-            'keywords': List[str],
-            'reading_time': int,
-            'word_count': int,
-            'timestamp': str
-        }
-    """
-    if Anthropic is None:
-        logger.error("anthropic package is not installed. Install with: pip install anthropic")
-        return {}
-
-    api_key = os.getenv('ANTHROPIC_API_KEY')
-    if not api_key:
-        logger.error("ANTHROPIC_API_KEY not found in environment variables")
-        return {}
-
-    logger.info(f"Generating article about: {topic}")
-    logger.info(f"Target length: {min_words}-{max_words} words")
-
-    try:
-        client = Anthropic(api_key=api_key)
-
-        # Create detailed prompt for Claude
-        prompt = f"""Write a comprehensive, trending news article analyzing: {topic}
+def _build_prompt(topic: str, min_words: int, max_words: int, target_audience: str) -> str:
+    """Build the article generation prompt."""
+    return f"""Write a comprehensive, trending news article analyzing: {topic}
 
 CRITICAL REQUIREMENTS:
 - This is a TRENDING TOPIC right now - explain WHY it's trending and getting so much attention
@@ -273,76 +235,101 @@ CONTENT:
 [Your HTML content here]
 """
 
-        # Call Claude API
-        logger.info("Calling Claude API...")
-        message = client.messages.create(
-            model=model,
-            max_tokens=4096,
-            temperature=0.7,
-            messages=[{
-                "role": "user",
-                "content": prompt
-            }]
-        )
 
-        # Extract response
-        response_text = message.content[0].text
+def _parse_response(response_text: str, topic: str) -> Dict:
+    """Parse LLM response into article dictionary."""
+    title_match = re.search(r'TITLE:\s*(.+?)(?:\n|META:)', response_text, re.IGNORECASE)
+    meta_match = re.search(r'META:\s*(.+?)(?:\n|CATEGORY:|CONTENT:)', response_text, re.IGNORECASE)
+    category_match = re.search(r'CATEGORY:\s*(.+?)(?:\n|CONTENT:)', response_text, re.IGNORECASE)
+    content_match = re.search(r'CONTENT:\s*(.+)', response_text, re.IGNORECASE | re.DOTALL)
 
-        # Parse the response
-        title_match = re.search(r'TITLE:\s*(.+?)(?:\n|META:)', response_text, re.IGNORECASE)
-        meta_match = re.search(r'META:\s*(.+?)(?:\n|CATEGORY:|CONTENT:)', response_text, re.IGNORECASE)
-        category_match = re.search(r'CATEGORY:\s*(.+?)(?:\n|CONTENT:)', response_text, re.IGNORECASE)
-        content_match = re.search(r'CONTENT:\s*(.+)', response_text, re.IGNORECASE | re.DOTALL)
+    if not all([title_match, meta_match, content_match]):
+        logger.error("Failed to parse response properly")
+        title = topic
+        meta_description = f"Learn about {topic}"
+        content = response_text
+    else:
+        title = title_match.group(1).strip()
+        meta_description = meta_match.group(1).strip()
+        content = content_match.group(1).strip()
 
-        if not all([title_match, meta_match, content_match]):
-            logger.error("Failed to parse Claude response properly")
-            # Fallback: use entire response as content
-            title = topic
-            meta_description = f"Learn about {topic}"
-            content = response_text
+    category = 'TECH'
+    if category_match:
+        raw_category = category_match.group(1).strip().upper()
+        if raw_category in VALID_CATEGORIES:
+            category = raw_category
         else:
-            title = title_match.group(1).strip()
-            meta_description = meta_match.group(1).strip()
-            content = content_match.group(1).strip()
+            logger.warning(f"Invalid category '{raw_category}', defaulting to TECH")
 
-        # Extract and validate category
-        category = 'TECH'  # default fallback
-        if category_match:
-            raw_category = category_match.group(1).strip().upper()
-            if raw_category in VALID_CATEGORIES:
-                category = raw_category
-            else:
-                logger.warning(f"Invalid category '{raw_category}', defaulting to TECH")
-        else:
-            logger.warning("No category found in response, defaulting to TECH")
+    word_count = len(re.sub(r'<[^>]+>', '', content).split())
+    reading_time = calculate_reading_time(content)
+    keywords = extract_keywords(content)
 
-        # Calculate metrics
-        word_count = len(re.sub(r'<[^>]+>', '', content).split())
-        reading_time = calculate_reading_time(content)
-        keywords = extract_keywords(content)
+    return {
+        'title': title,
+        'meta_description': meta_description,
+        'content': content,
+        'keywords': keywords,
+        'reading_time': reading_time,
+        'word_count': word_count,
+        'timestamp': datetime.now().isoformat(),
+        'topic': category,
+        'trending_keyword': topic,
+    }
 
-        article = {
-            'title': title,
-            'meta_description': meta_description,
-            'content': content,
-            'keywords': keywords,
-            'reading_time': reading_time,
-            'word_count': word_count,
-            'timestamp': datetime.now().isoformat(),
-            'topic': category,
-            'trending_keyword': topic,
-        }
 
-        logger.info(f"Article generated successfully")
-        logger.info(f"Title: {title}")
-        logger.info(f"Word count: {word_count}")
-        logger.info(f"Reading time: {reading_time} minutes")
+def generate_article(
+    topic: str,
+    min_words: int = 1500,
+    max_words: int = 2000,
+    target_audience: str = "North American and European readers",
+    **kwargs,
+) -> Dict:
+    """
+    Generate a complete SEO-optimized article.
+    Primary: Gemini 2.5 Pro via CLI
+    Fallback: Gemini API (gemini-3-flash-preview)
+    """
+    logger.info(f"Generating article about: {topic}")
+    logger.info(f"Target length: {min_words}-{max_words} words")
 
-        return article
+    prompt = _build_prompt(topic, min_words, max_words, target_audience)
 
-    except Exception as e:
-        logger.error(f"Error generating article: {str(e)}")
-        return {}
+    # Primary: Gemini CLI (gemini-2.5-pro, Google account auth)
+    if _gemini_cli_path:
+        try:
+            response_text = _generate_with_gemini_cli(prompt)
+            article = _parse_response(response_text, topic)
+            logger.info(f"[Gemini CLI] Article generated: {article['title']} ({article['word_count']} words)")
+            article['_provider'] = 'gemini-cli'
+            return article
+        except Exception as e:
+            logger.warning(f"Gemini CLI failed: {e}")
+
+    # Fallback: Gemini API (gemini-3-flash-preview)
+    if os.getenv('GOOGLE_API_KEY') and genai:
+        for attempt in range(3):
+            try:
+                if attempt > 0:
+                    wait = 30 * attempt
+                    logger.info(f"Rate limit retry {attempt}/3, waiting {wait}s...")
+                    time.sleep(wait)
+                response_text = _generate_with_gemini_api(prompt)
+                article = _parse_response(response_text, topic)
+                logger.info(f"[Gemini API] Article generated: {article['title']} ({article['word_count']} words)")
+                article['_provider'] = 'gemini-api'
+                time.sleep(5)
+                return article
+            except Exception as e:
+                if '429' in str(e) or 'quota' in str(e).lower() or 'rate' in str(e).lower():
+                    logger.warning(f"Gemini API rate limit hit (attempt {attempt+1}/3)")
+                    continue
+                logger.error(f"Gemini API error: {e}")
+                return {}
+        logger.error("Gemini API rate limit exhausted after 3 retries")
+
+    logger.error("No LLM provider available (Gemini CLI and Gemini API both failed).")
+    return {}
 
 
 def generate_multiple_articles(
@@ -350,17 +337,7 @@ def generate_multiple_articles(
     articles_count: int = 3,
     **kwargs
 ) -> list:
-    """
-    Generate multiple articles from a list of topics with duplicate checking.
-
-    Args:
-        topics: List of topic dictionaries from fetch_trending
-        articles_count: Number of articles to generate
-        **kwargs: Additional arguments to pass to generate_article
-
-    Returns:
-        List of article dictionaries
-    """
+    """Generate multiple articles from a list of topics with duplicate checking."""
     logger.info(f"Generating {articles_count} articles from {len(topics)} topics")
 
     # Get existing articles and trending keywords to avoid duplicates
@@ -374,7 +351,6 @@ def generate_multiple_articles(
             existing_titles = {a.get('title', '').lower() for a in existing_articles}
             logger.info(f"Loaded {len(existing_titles)} existing article titles for duplicate check")
 
-            # Load existing trending keywords for keyword-to-keyword comparison
             db_keywords = db.list_trending_keywords(limit=200)
             existing_keywords = {k.lower() for k in db_keywords}
             logger.info(f"Loaded {len(existing_keywords)} existing trending keywords for duplicate check")
@@ -413,7 +389,7 @@ def generate_multiple_articles(
         topic_lower = topic.lower()
         is_duplicate = False
 
-        # 1. Compare new topic keyword against existing trending keywords (keyword-to-keyword)
+        # 1. Compare new topic keyword against existing trending keywords
         for existing_kw in existing_keywords:
             if _is_similar(topic_lower, existing_kw, threshold=0.4):
                 logger.info(f"Skipping similar keyword (keyword match): '{topic}' ~ '{existing_kw}'")
@@ -444,7 +420,7 @@ def generate_multiple_articles(
         article = generate_article(topic, **kwargs)
 
         if article and article.get('word_count', 0) >= 500:
-            # Post-generation semantic duplicate check using Claude Haiku
+            # Post-generation semantic duplicate check
             if existing_titles and _is_semantic_duplicate(article['title'], existing_titles):
                 logger.info(f"Skipping semantic duplicate: '{article['title']}'")
                 continue
@@ -465,7 +441,6 @@ def generate_multiple_articles(
 
 
 if __name__ == "__main__":
-    # Test the content generation
     print("Testing content generation...\n")
 
     test_topic = "Artificial Intelligence in Healthcare"
@@ -473,12 +448,13 @@ if __name__ == "__main__":
     print(f"Generating article about: {test_topic}")
     article = generate_article(
         topic=test_topic,
-        min_words=500,  # Shorter for testing
+        min_words=500,
         max_words=800
     )
 
     if article:
         print("\n=== Generated Article ===")
+        print(f"Provider: {article.get('_provider', 'unknown')}")
         print(f"Title: {article['title']}")
         print(f"Meta: {article['meta_description']}")
         print(f"Word Count: {article['word_count']}")

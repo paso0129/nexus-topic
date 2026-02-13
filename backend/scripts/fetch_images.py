@@ -2,85 +2,85 @@
 Unsplash Image Fetcher
 
 Fetches cover images from Unsplash API based on article keywords/topic.
-Uses Claude AI to generate visually descriptive search queries for better relevance.
+Uses Gemini to generate visually descriptive search queries for better relevance.
 Follows Unsplash API guidelines: https://unsplash.com/documentation
 """
 
 import os
+import re
 import time
 import logging
+import subprocess
+import shutil
 from typing import Dict, List, Optional
 
 import requests
+
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
 
 logger = logging.getLogger(__name__)
 
 UNSPLASH_API_URL = "https://api.unsplash.com/search/photos"
 
+_gemini_cli_path = shutil.which('gemini')
+
 
 def _build_search_query_with_ai(article: Dict) -> Optional[str]:
     """
-    Use Claude AI to generate a visually descriptive Unsplash search query
-    that captures the essence of the article topic.
-
-    Args:
-        article: Article dictionary with 'title', 'meta_description', 'topic' fields
-
-    Returns:
-        AI-generated search query string, or None if unavailable
+    Use Gemini to generate a visually descriptive Unsplash search query.
+    Tries API first, falls back to CLI.
     """
-    try:
-        from anthropic import Anthropic
-    except ImportError:
-        return None
+    title = article.get('title', '')
+    description = article.get('meta_description', '')
+    topic = article.get('topic', '')
 
-    api_key = os.getenv('ANTHROPIC_API_KEY')
-    if not api_key:
-        return None
+    prompt = (
+        f"Generate a short Unsplash image search query (2-4 words) that would find "
+        f"a visually relevant photo for this article. Focus on concrete, visual concepts "
+        f"(objects, scenes, settings) rather than abstract ideas. Do NOT use brand names, "
+        f"proper nouns, or product names - use generic visual descriptions instead.\n\n"
+        f"Title: {title}\n"
+        f"Topic: {topic}\n"
+        f"Description: {description}\n\n"
+        f"Reply with ONLY the search query, nothing else."
+    )
 
-    try:
-        client = Anthropic(api_key=api_key)
-        title = article.get('title', '')
-        description = article.get('meta_description', '')
-        topic = article.get('topic', '')
+    # Try Gemini API
+    if os.getenv('GOOGLE_API_KEY') and genai:
+        try:
+            genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
+            model = genai.GenerativeModel('gemini-3-flash-preview')
+            resp = model.generate_content(prompt)
+            query = resp.text.strip().strip('"').strip("'")
+            logger.info(f"  AI query: '{query}'")
+            return query
+        except Exception as e:
+            logger.warning(f"Gemini API query generation failed: {e}")
 
-        response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=50,
-            messages=[{
-                "role": "user",
-                "content": (
-                    f"Generate a short Unsplash image search query (2-4 words) that would find "
-                    f"a visually relevant photo for this article. Focus on concrete, visual concepts "
-                    f"(objects, scenes, settings) rather than abstract ideas. Do NOT use brand names, "
-                    f"proper nouns, or product names - use generic visual descriptions instead.\n\n"
-                    f"Title: {title}\n"
-                    f"Topic: {topic}\n"
-                    f"Description: {description}\n\n"
-                    f"Reply with ONLY the search query, nothing else."
-                ),
-            }],
-        )
-        query = response.content[0].text.strip().strip('"').strip("'")
-        logger.info(f"  AI query: '{query}'")
-        return query
-    except Exception as e:
-        logger.warning(f"AI query generation failed: {e}")
-        return None
+    # Fallback to Gemini CLI
+    if _gemini_cli_path:
+        try:
+            result = subprocess.run(
+                [_gemini_cli_path, '-m', 'gemini-2.5-flash', '-p', prompt],
+                capture_output=True, text=True, timeout=30,
+            )
+            if result.returncode == 0:
+                lines = [l for l in result.stdout.strip().split('\n')
+                         if not l.startswith('Loaded cached') and not l.startswith('Hook registry')]
+                query = '\n'.join(lines).strip().strip('"').strip("'")
+                logger.info(f"  AI query (CLI): '{query}'")
+                return query
+        except Exception as e:
+            logger.warning(f"Gemini CLI query generation failed: {e}")
+
+    return None
 
 
 def _build_search_query_fallback(article: Dict) -> str:
-    """
-    Fallback: build a search query from article title keywords.
-
-    Args:
-        article: Article dictionary with 'title', 'topic' fields
-
-    Returns:
-        Search query string
-    """
-    import re
-
+    """Fallback: build a search query from article title keywords."""
     title = article.get('title', '')
 
     stop = {'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'has', 'had',
@@ -101,10 +101,7 @@ def _build_search_query_fallback(article: Dict) -> str:
 
 
 def _build_search_query(article: Dict) -> str:
-    """
-    Build a search query for Unsplash. Tries AI-generated query first,
-    falls back to keyword extraction.
-    """
+    """Build a search query for Unsplash. Tries AI first, falls back to keywords."""
     ai_query = _build_search_query_with_ai(article)
     if ai_query:
         return ai_query
@@ -112,16 +109,7 @@ def _build_search_query(article: Dict) -> str:
 
 
 def fetch_unsplash_image(query: str) -> Optional[Dict[str, str]]:
-    """
-    Fetch a landscape image from Unsplash search API.
-
-    Args:
-        query: Search query string
-
-    Returns:
-        Dict with url, photographer_name, photographer_url, unsplash_url
-        or None on failure
-    """
+    """Fetch a landscape image from Unsplash search API."""
     access_key = os.getenv('UNSPLASH_ACCESS_KEY')
     if not access_key:
         logger.warning("UNSPLASH_ACCESS_KEY not set, skipping image fetch")
@@ -165,7 +153,7 @@ def fetch_unsplash_image(query: str) -> Optional[Dict[str, str]]:
                     timeout=5,
                 )
             except Exception:
-                pass  # Non-critical, best-effort
+                pass
 
         return {
             'url': image_url,
@@ -183,25 +171,13 @@ def fetch_unsplash_image(query: str) -> Optional[Dict[str, str]]:
 
 
 def fetch_images_for_articles(articles: List[Dict]) -> List[Dict]:
-    """
-    Fetch Unsplash cover images for a batch of articles.
-    Adds featured_image and image_attribution fields to each article dict.
-
-    Respects Unsplash rate limits with a 1.5s delay between requests.
-
-    Args:
-        articles: List of article dicts
-
-    Returns:
-        Same list with featured_image and image_attribution populated
-    """
+    """Fetch Unsplash cover images for a batch of articles."""
     access_key = os.getenv('UNSPLASH_ACCESS_KEY')
     if not access_key:
         logger.warning("UNSPLASH_ACCESS_KEY not set. Skipping image fetch for all articles.")
         return articles
 
     for i, article in enumerate(articles):
-        # Skip if article already has a featured image
         if article.get('featured_image'):
             logger.info(f"Article {i+1}/{len(articles)} already has featured image, skipping")
             continue
@@ -222,7 +198,6 @@ def fetch_images_for_articles(articles: List[Dict]) -> List[Dict]:
         else:
             logger.info(f"  -> No image found, article will use category thumbnail")
 
-        # Rate limit: wait between requests (skip after last)
         if i < len(articles) - 1:
             time.sleep(1.5)
 
