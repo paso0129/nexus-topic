@@ -184,8 +184,43 @@ VALID_CATEGORIES = [
 ]
 
 
-def _build_prompt(topic: str, min_words: int, max_words: int, target_audience: str) -> str:
+def _build_prompt(
+    topic: str,
+    min_words: int,
+    max_words: int,
+    target_audience: str,
+    existing_articles: list = None,
+    source_url: str = None,
+) -> str:
     """Build the article generation prompt."""
+
+    # Build internal links section
+    internal_links_section = ""
+    if existing_articles:
+        links_list = "\n".join(
+            f"- \"{a['title']}\" -> /article/{a['slug']}"
+            for a in existing_articles[:30]
+        )
+        internal_links_section = f"""
+INTERNAL LINKING (IMPORTANT for SEO):
+Below are existing articles on our site. You MUST naturally embed 2-4 internal links to related articles within the body text.
+Use HTML anchor tags like: <a href="/article/SLUG">Article Title</a>
+Only link to articles that are genuinely related to the current topic. Weave them naturally into sentences.
+Example: "This development echoes concerns raised in our earlier coverage of <a href="/article/some-slug">Some Related Article</a>."
+
+Existing articles:
+{links_list}
+"""
+
+    # Build source reference section
+    source_section = ""
+    if source_url:
+        source_section = f"""
+SOURCE REFERENCE:
+The original source for this trending topic is: {source_url}
+You may reference or link to this source in the article where appropriate using <a href="{source_url}" target="_blank" rel="noopener noreferrer">source text</a>.
+"""
+
     return f"""Write a comprehensive, trending news article analyzing: {topic}
 
 CRITICAL REQUIREMENTS:
@@ -201,7 +236,7 @@ Article Requirements:
 - Style: News-style, authoritative, analytical
 - SEO: Include relevant keywords naturally throughout
 - Tone: Professional journalist covering trending topics
-
+{internal_links_section}{source_section}
 The article MUST include:
 1. **Opening Hook**: Explain what's happening right now and why everyone is talking about this
 2. **Background Context**: Provide essential background for readers who just heard about this
@@ -283,6 +318,8 @@ def generate_article(
     min_words: int = 1500,
     max_words: int = 2000,
     target_audience: str = "North American and European readers",
+    existing_articles: list = None,
+    source_url: str = None,
     **kwargs,
 ) -> Dict:
     """
@@ -293,7 +330,11 @@ def generate_article(
     logger.info(f"Generating article about: {topic}")
     logger.info(f"Target length: {min_words}-{max_words} words")
 
-    prompt = _build_prompt(topic, min_words, max_words, target_audience)
+    prompt = _build_prompt(
+        topic, min_words, max_words, target_audience,
+        existing_articles=existing_articles,
+        source_url=source_url,
+    )
 
     # Primary: Gemini CLI (gemini-2.5-pro, Google account auth)
     if _gemini_cli_path:
@@ -343,11 +384,16 @@ def generate_multiple_articles(
     # Get existing articles and trending keywords to avoid duplicates
     existing_titles = set()
     existing_keywords = set()
+    existing_articles_for_links = []  # For internal linking in prompts
     try:
         from scripts.database import get_db_client, is_supabase_enabled
         if is_supabase_enabled():
             db = get_db_client()
             existing_articles = db.list_articles(limit=100, published_only=False)
+            existing_articles_for_links = [
+                {'title': a.get('title', ''), 'slug': a.get('slug', '')}
+                for a in existing_articles if a.get('slug')
+            ]
             existing_titles = {a.get('title', '').lower() for a in existing_articles}
             logger.info(f"Loaded {len(existing_titles)} existing article titles for duplicate check")
 
@@ -417,7 +463,13 @@ def generate_multiple_articles(
 
         logger.info(f"Generating article {len(articles)+1}/{articles_count}: {topic}")
 
-        article = generate_article(topic, **kwargs)
+        source_url = topic_data.get('url', '')
+        article = generate_article(
+            topic,
+            existing_articles=existing_articles_for_links,
+            source_url=source_url,
+            **kwargs,
+        )
 
         if article and article.get('word_count', 0) >= 500:
             # Post-generation semantic duplicate check
