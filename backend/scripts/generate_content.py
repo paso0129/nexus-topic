@@ -179,8 +179,8 @@ def extract_keywords(content: str, max_keywords: int = 10) -> list:
 
 
 VALID_CATEGORIES = [
-    'AI', 'BIZ & IT', 'CARS', 'CULTURE', 'GAMING', 'HEALTH',
-    'POLICY', 'SCIENCE', 'SECURITY', 'SPACE', 'TECH',
+    'AI', 'BIZ & IT', 'CULTURE', 'GAMING',
+    'POLICY', 'SECURITY', 'TECH',
 ]
 
 
@@ -277,7 +277,7 @@ Do NOT include <html>, <head>, or <body> tags - just the article content.
 Also provide:
 - A compelling news headline (under 60 characters) that captures the trending aspect
 - A meta description (under 160 characters) that explains why this is trending
-- A CATEGORY from this exact list: AI, BIZ & IT, CARS, CULTURE, GAMING, HEALTH, POLICY, SCIENCE, SECURITY, SPACE, TECH
+- A CATEGORY from this exact list: AI, BIZ & IT, CULTURE, GAMING, POLICY, SECURITY, TECH
   Choose the single best-fitting category based on the article's primary subject matter.
 
 Format your response as:
