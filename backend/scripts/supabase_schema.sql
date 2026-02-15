@@ -29,7 +29,7 @@ CREATE TABLE trending_sources (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   article_id UUID REFERENCES articles(id) ON DELETE CASCADE,
   keyword TEXT NOT NULL,
-  source TEXT NOT NULL CHECK (source IN ('hackernews', 'reddit', 'google_trends')),
+  source TEXT NOT NULL CHECK (source IN ('hackernews', 'reddit', 'google_trends', 'devto', 'producthunt', 'techcrunch', 'theverge', 'newsapi')),
   score INTEGER DEFAULT 0,
   region TEXT DEFAULT 'US',
   url TEXT,
@@ -72,7 +72,8 @@ CREATE TRIGGER update_articles_updated_at
 CREATE VIEW article_list_view AS
 SELECT
   a.id, a.slug, a.title, a.meta_description, a.reading_time,
-  a.keywords, a.created_at, a.topic, ts.source, ts.score
+  a.keywords, a.created_at, a.topic, a.featured_image,
+  a.image_attribution, ts.source, ts.score
 FROM articles a
 LEFT JOIN trending_sources ts ON a.id = ts.article_id
 WHERE a.published = true
