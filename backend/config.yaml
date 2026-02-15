@@ -19,7 +19,7 @@ automation:
     - "FR"
 
   # Number of articles to generate per run
-  articles_per_run: 3
+  articles_per_run: 5
 
   # Article length (word count)
   min_words: 800

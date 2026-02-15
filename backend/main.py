@@ -165,8 +165,8 @@ Examples:
     parser.add_argument(
         '--articles',
         type=int,
-        default=3,
-        help='Number of articles to generate (default: 3)'
+        default=5,
+        help='Number of articles to generate (default: 5)'
     )
 
     parser.add_argument(

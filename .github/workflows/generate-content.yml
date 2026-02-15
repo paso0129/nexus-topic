@@ -4,14 +4,16 @@ on:
   schedule:
     # 매일 UTC 01:00 (한국시간 10:00)
     - cron: '0 1 * * *'
-    # 매일 UTC 13:00 (한국시간 22:00)
-    - cron: '0 13 * * *'
+    # 매일 UTC 09:00 (한국시간 18:00)
+    - cron: '0 9 * * *'
+    # 매일 UTC 17:00 (한국시간 02:00)
+    - cron: '0 17 * * *'
   workflow_dispatch:
     inputs:
       articles:
         description: 'Number of articles to generate'
         required: false
-        default: '3'
+        default: '5'
 
 jobs:
   generate:
@@ -42,7 +44,7 @@ jobs:
           UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
         run: |
           cd backend
-          python main.py --articles ${{ github.event.inputs.articles || '3' }}
+          python main.py --articles ${{ github.event.inputs.articles || '5' }}
 
       - name: Revalidate frontend cache
         env:
@@ -60,4 +62,4 @@ jobs:
         run: |
           echo "## Article Generation Summary" >> $GITHUB_STEP_SUMMARY
           echo "- Date: $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
-          echo "- Articles requested: ${{ github.event.inputs.articles || '3' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Articles requested: ${{ github.event.inputs.articles || '5' }}" >> $GITHUB_STEP_SUMMARY

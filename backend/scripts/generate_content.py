@@ -279,6 +279,8 @@ Also provide:
 - A meta description (under 160 characters) that explains why this is trending
 - A CATEGORY from this exact list: AI, BIZ & IT, CULTURE, GAMING, POLICY, SECURITY, TECH
   Choose the single best-fitting category based on the article's primary subject matter.
+  When the article could reasonably fit multiple categories, PREFER these high-value categories: AI, SECURITY, BIZ & IT.
+  Only use CULTURE, GAMING, POLICY, TECH when the article clearly doesn't fit the preferred categories.
 
 Format your response as:
 TITLE: [Your headline here]
