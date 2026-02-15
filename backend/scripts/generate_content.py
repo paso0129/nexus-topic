@@ -180,7 +180,7 @@ def extract_keywords(content: str, max_keywords: int = 10) -> list:
 
 VALID_CATEGORIES = [
     'AI', 'BIZ & IT', 'CULTURE', 'GAMING',
-    'POLICY', 'SECURITY', 'TECH',
+    'KOREA', 'POLICY', 'SECURITY', 'TECH',
 ]
 
 
