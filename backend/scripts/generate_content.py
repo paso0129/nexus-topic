@@ -194,7 +194,7 @@ def _build_prompt(
 ) -> str:
     """Build the article generation prompt."""
 
-    # Build internal links section
+    # Build internal links section (minimal - only when highly relevant)
     internal_links_section = ""
     if existing_articles:
         links_list = "\n".join(
@@ -202,11 +202,10 @@ def _build_prompt(
             for a in existing_articles[:30]
         )
         internal_links_section = f"""
-INTERNAL LINKING (IMPORTANT for SEO):
-Below are existing articles on our site. You MUST naturally embed 2-4 internal links to related articles within the body text.
+INTERNAL LINKING (LOW PRIORITY - use sparingly):
+Below are existing articles on our site. Only link to one if it is DIRECTLY and strongly related to the current topic.
+Use 0-1 internal links at most. Prefer external links over internal links.
 Use HTML anchor tags like: <a href="/article/SLUG">Article Title</a>
-Only link to articles that are genuinely related to the current topic. Weave them naturally into sentences.
-Example: "This development echoes concerns raised in our earlier coverage of <a href="/article/some-slug">Some Related Article</a>."
 
 Existing articles:
 {links_list}
@@ -223,8 +222,8 @@ You may reference or link to this source in the article where appropriate using 
 
     # External links section
     external_links_section = """
-EXTERNAL LINKING (IMPORTANT for credibility & SEO):
-You MUST naturally embed 3-5 outbound links to reputable external sources within the article body.
+EXTERNAL LINKING (HIGH PRIORITY - credibility & SEO):
+You MUST naturally embed 4-6 outbound links to reputable external sources within the article body. External links are the PRIMARY link type for this article.
 Use HTML anchor tags: <a href="URL" target="_blank" rel="noopener noreferrer">descriptive text</a>
 Link to well-known, authoritative sites such as:
 - Wikipedia (for background context, definitions, historical references)
