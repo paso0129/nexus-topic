@@ -221,6 +221,25 @@ The original source for this trending topic is: {source_url}
 You may reference or link to this source in the article where appropriate using <a href="{source_url}" target="_blank" rel="noopener noreferrer">source text</a>.
 """
 
+    # External links section
+    external_links_section = """
+EXTERNAL LINKING (IMPORTANT for credibility & SEO):
+You MUST naturally embed 3-5 outbound links to reputable external sources within the article body.
+Use HTML anchor tags: <a href="URL" target="_blank" rel="noopener noreferrer">descriptive text</a>
+Link to well-known, authoritative sites such as:
+- Wikipedia (for background context, definitions, historical references)
+- Official company/organization websites (e.g., apple.com, nasa.gov, who.int)
+- Major news outlets (e.g., Reuters, AP News, BBC, The Verge, TechCrunch, Ars Technica, Wired)
+- Government or institutional sources (e.g., FDA, SEC, EPA, NIH, EU official sites)
+- Academic or research sources when relevant
+Rules:
+- Links must be REAL, well-known URLs that are very likely to exist (e.g., https://en.wikipedia.org/wiki/Topic_Name, https://www.reuters.com/, https://techcrunch.com/)
+- Do NOT fabricate specific article URLs - link to homepage or Wikipedia topic pages instead
+- Weave links naturally into sentences, do NOT create a separate "References" or "Sources" section
+- Example: "According to <a href="https://en.wikipedia.org/wiki/Artificial_intelligence" target="_blank" rel="noopener noreferrer">Wikipedia</a>, artificial intelligence has evolved rapidly since..."
+- Example: "The announcement was first reported by <a href="https://www.reuters.com/" target="_blank" rel="noopener noreferrer">Reuters</a>, indicating..."
+"""
+
     return f"""Write a comprehensive, trending news article analyzing: {topic}
 
 CRITICAL REQUIREMENTS:
@@ -236,7 +255,7 @@ Article Requirements:
 - Style: News-style, authoritative, analytical
 - SEO: Include relevant keywords naturally throughout
 - Tone: Professional journalist covering trending topics
-{internal_links_section}{source_section}
+{internal_links_section}{external_links_section}{source_section}
 The article MUST include:
 1. **Opening Hook**: Explain what's happening right now and why everyone is talking about this
 2. **Background Context**: Provide essential background for readers who just heard about this
