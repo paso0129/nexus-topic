@@ -9,8 +9,8 @@ beautifulsoup4>=4.12.0
 lxml>=5.1.0
 
 # Trending Sources
-pytrends>=4.9.0
-praw>=7.7.1
+# pytrends>=4.9.0  # Not used (Google Trends fetched via RSS)
+# praw>=7.7.1  # Not used (Reddit removed)
 
 # AI Content Generation
 google-generativeai>=0.8.0
