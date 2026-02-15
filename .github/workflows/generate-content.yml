@@ -49,7 +49,7 @@ jobs:
           REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
         run: |
           echo "Revalidating frontend cache..."
-          curl -s -X POST "https://nexustopic.com/api/revalidate" \
+          curl -s -X POST "https://www.nexustopic.com/api/revalidate" \
             -H "Authorization: Bearer $REVALIDATION_SECRET" \
             -H "Content-Type: application/json" \
             -d '{}' || true
