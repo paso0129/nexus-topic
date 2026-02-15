@@ -392,8 +392,8 @@ def _parse_response(response_text: str, topic: str) -> Dict:
 
 def generate_article(
     topic: str,
-    min_words: int = 1500,
-    max_words: int = 2000,
+    min_words: int = 500,
+    max_words: int = 700,
     target_audience: str = "North American and European readers",
     existing_articles: list = None,
     source_url: str = None,
@@ -553,7 +553,8 @@ def generate_multiple_articles(
         if is_duplicate:
             continue
 
-        logger.info(f"Generating article {len(articles)+1}/{articles_count}: {topic}")
+        quick_cat = topic_data.get('_quick_cat', '?')
+        logger.info(f"Generating article {len(articles)+1}/{articles_count} [{quick_cat}]: {topic}")
 
         source_url = topic_data.get('url', '')
         article = generate_article(
@@ -563,7 +564,7 @@ def generate_multiple_articles(
             **kwargs,
         )
 
-        if article and article.get('word_count', 0) >= 500:
+        if article and article.get('word_count', 0) >= 300:
             # Post-generation semantic duplicate check
             if existing_titles and _is_semantic_duplicate(article['title'], existing_titles):
                 logger.info(f"Skipping semantic duplicate: '{article['title']}'")

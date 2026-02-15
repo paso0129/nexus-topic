@@ -434,7 +434,8 @@ Examples:
 
         logger.info(f"\nSuccessfully generated {len(articles)} articles:")
         for i, article in enumerate(articles, 1):
-            logger.info(f"  {i}. {article['title']} ({article['word_count']} words)")
+            cat = article.get('topic', '?')
+            logger.info(f"  {i}. [{cat}] {article['title']} ({article['word_count']} words)")
 
     except Exception as e:
         logger.error(f"Error generating articles: {e}")
