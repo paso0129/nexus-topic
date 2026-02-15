@@ -44,6 +44,17 @@ jobs:
           cd backend
           python main.py --articles ${{ github.event.inputs.articles || '3' }}
 
+      - name: Revalidate frontend cache
+        env:
+          REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
+        run: |
+          echo "Revalidating frontend cache..."
+          curl -s -X POST "https://nexustopic.com/api/revalidate" \
+            -H "Authorization: Bearer $REVALIDATION_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{}' || true
+          echo "Frontend cache revalidated"
+
       - name: Summary
         if: always()
         run: |
