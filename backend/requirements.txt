@@ -12,6 +12,9 @@ lxml>=5.1.0
 pytrends>=4.9.0
 praw>=7.7.1
 
+# AI Content Generation
+google-generativeai>=0.8.0
+
 # Database
 supabase>=2.0.0
 postgrest>=0.10.0
