@@ -163,14 +163,60 @@ def calculate_reading_time(text: str, words_per_minute: int = 200) -> int:
     return reading_time
 
 
+STOP_WORDS = {
+    'this', 'that', 'with', 'from', 'which', 'their', 'there', 'these',
+    'those', 'then', 'than', 'them', 'they', 'been', 'being', 'were',
+    'have', 'having', 'does', 'doing', 'done', 'will', 'would', 'could',
+    'should', 'might', 'must', 'shall', 'about', 'above', 'after', 'again',
+    'also', 'another', 'back', 'because', 'before', 'between', 'both',
+    'came', 'come', 'each', 'even', 'every', 'find', 'first', 'found',
+    'give', 'going', 'gone', 'good', 'great', 'help', 'here', 'high',
+    'however', 'into', 'just', 'keep', 'know', 'known', 'last', 'left',
+    'like', 'line', 'long', 'look', 'made', 'make', 'many', 'more',
+    'most', 'much', 'need', 'never', 'next', 'only', 'open', 'other',
+    'over', 'part', 'point', 'really', 'right', 'same', 'seem', 'show',
+    'side', 'since', 'small', 'some', 'something', 'still', 'such',
+    'sure', 'take', 'tell', 'thing', 'think', 'through', 'time', 'turn',
+    'under', 'upon', 'used', 'using', 'very', 'want', 'well', 'what',
+    'when', 'where', 'while', 'work', 'world', 'year', 'your',
+    'able', 'allow', 'around', 'away', 'become', 'best', 'better',
+    'call', 'case', 'change', 'clear', 'close', 'consider', 'create',
+    'current', 'different', 'down', 'early', 'else', 'enough', 'ever',
+    'example', 'face', 'fact', 'feel', 'form', 'full', 'further',
+    'general', 'gets', 'given', 'goes', 'hand', 'hard', 'head',
+    'home', 'house', 'human', 'important', 'include', 'issue', 'itself',
+    'kind', 'large', 'late', 'lead', 'least', 'less', 'level', 'life',
+    'likely', 'live', 'local', 'makes', 'matter', 'mean', 'means',
+    'move', 'name', 'near', 'number', 'offer', 'often', 'order',
+    'place', 'plan', 'play', 'possible', 'power', 'problem', 'provide',
+    'public', 'question', 'quite', 'read', 'real', 'reason', 'result',
+    'room', 'said', 'says', 'second', 'sense', 'service', 'several',
+    'simply', 'sort', 'start', 'state', 'story', 'system', 'term',
+    'things', 'thought', 'today', 'together', 'took', 'true', 'until',
+    'ways', 'whole', 'word', 'words', 'wrote', 'years',
+    'also', 'already', 'always', 'among', 'based', 'bring', 'built',
+    'called', 'comes', 'common', 'complete', 'control', 'design',
+    'developed', 'doesn', 'during', 'either', 'enable', 'entire',
+    'exactly', 'feature', 'features', 'following', 'ground', 'group',
+    'growing', 'itself', 'major', 'making', 'model', 'models',
+    'modern', 'natural', 'needs', 'original', 'particularly',
+    'people', 'potential', 'rather', 'remain', 'running', 'single',
+    'specific', 'support', 'taken', 'three', 'toward', 'towards',
+    'type', 'types', 'understanding', 'without',
+    'adsbygoogle', 'window', 'push', 'pagead', 'script', 'class',
+    'style', 'href', 'http', 'https', 'data', 'content', 'users',
+}
+
+
 def extract_keywords(content: str, max_keywords: int = 10) -> list:
-    """Extract potential keywords from content."""
+    """Extract meaningful keywords from content, filtering stop words."""
     clean_text = re.sub(r'<[^>]+>', '', content)
     words = re.findall(r'\b[a-z]{4,}\b', clean_text.lower())
 
     word_freq = {}
     for word in words:
-        word_freq[word] = word_freq.get(word, 0) + 1
+        if word not in STOP_WORDS:
+            word_freq[word] = word_freq.get(word, 0) + 1
 
     sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
     keywords = [word for word, freq in sorted_words[:max_keywords]]
