@@ -273,46 +273,53 @@ def fetch_tech_rss(limit: int = 10) -> List[Dict]:
 
 
 def fetch_newsapi(limit: int = 10) -> List[Dict]:
-    """Fetch top tech headlines from NewsAPI."""
+    """Fetch top headlines from NewsAPI across multiple categories."""
     api_key = os.environ.get('NEWSAPI_KEY')
     if not api_key:
         logger.info("NEWSAPI_KEY not set, skipping NewsAPI")
         return []
 
-    logger.info(f"Fetching top {limit} NewsAPI headlines")
+    categories = ['technology', 'entertainment', 'business', 'health', 'science', 'general']
+    per_category = max(3, limit // len(categories))
+    logger.info(f"Fetching NewsAPI headlines across {len(categories)} categories ({per_category} each)")
     trends_list = []
 
-    try:
-        response = requests.get(
-            'https://newsapi.org/v2/top-headlines',
-            params={
-                'category': 'technology',
-                'language': 'en',
-                'pageSize': limit,
-                'apiKey': api_key,
-            },
-            timeout=10,
-        )
-        response.raise_for_status()
-        data = response.json()
+    for category in categories:
+        try:
+            response = requests.get(
+                'https://newsapi.org/v2/top-headlines',
+                params={
+                    'category': category,
+                    'language': 'en',
+                    'pageSize': per_category,
+                    'apiKey': api_key,
+                },
+                timeout=10,
+            )
+            response.raise_for_status()
+            data = response.json()
 
-        for idx, article in enumerate(data.get('articles', [])):
-            title = article.get('title', '')
-            if title and title != '[Removed]':
-                trends_list.append({
-                    'keyword': title,
-                    'source': 'newsapi',
-                    'score': limit - idx,
-                    'region': 'global',
-                    'url': article.get('url', ''),
-                    'timestamp': datetime.now().isoformat(),
-                })
+            count = 0
+            for idx, article in enumerate(data.get('articles', [])):
+                title = article.get('title', '')
+                if title and title != '[Removed]':
+                    trends_list.append({
+                        'keyword': title,
+                        'source': f'newsapi_{category}',
+                        'score': per_category - idx,
+                        'region': 'global',
+                        'url': article.get('url', ''),
+                        'timestamp': datetime.now().isoformat(),
+                    })
+                    count += 1
 
-        logger.info(f"Fetched {len(trends_list)} headlines from NewsAPI")
+            logger.info(f"Fetched {count} headlines from NewsAPI ({category})")
 
-    except Exception as e:
-        logger.warning(f"NewsAPI fetch failed: {str(e)}")
+        except Exception as e:
+            logger.warning(f"NewsAPI fetch failed for {category}: {str(e)}")
+            continue
 
+    logger.info(f"Total NewsAPI headlines: {len(trends_list)}")
     return trends_list
 
 

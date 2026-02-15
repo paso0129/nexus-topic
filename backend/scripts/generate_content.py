@@ -225,8 +225,8 @@ def extract_keywords(content: str, max_keywords: int = 10) -> list:
 
 
 VALID_CATEGORIES = [
-    'AI', 'BIZ & IT', 'CULTURE', 'GAMING',
-    'KOREA', 'POLICY', 'SECURITY', 'TECH',
+    'AI', 'BIZ & IT', 'CULTURE', 'ECONOMY', 'ENTERTAINMENT',
+    'GAMING', 'HEALTH', 'POLICY', 'SCIENCE', 'SECURITY', 'TECH',
 ]
 
 
@@ -323,11 +323,21 @@ Do NOT include <html>, <head>, or <body> tags - just the article content.
 Also provide:
 - A compelling news headline (under 60 characters) that captures the trending aspect
 - A meta description (under 160 characters) that explains why this is trending
-- A CATEGORY from this exact list: AI, BIZ & IT, CULTURE, GAMING, KOREA, POLICY, SECURITY, TECH
-  Use KOREA for articles about Korean entertainment, K-pop, K-drama, Korean celebrities, and Korean pop culture.
+- A CATEGORY from this exact list: AI, BIZ & IT, CULTURE, ECONOMY, ENTERTAINMENT, GAMING, HEALTH, POLICY, SCIENCE, SECURITY, TECH
+  Category guidelines:
+  - AI: Artificial intelligence, machine learning, LLMs, neural networks
+  - BIZ & IT: Business tech, SaaS, cloud, enterprise, startups
+  - CULTURE: Society, art, philosophy, social movements
+  - ECONOMY: Stocks, markets, finance, crypto, trade, tariffs, inflation
+  - ENTERTAINMENT: Movies, music, celebrities, TV shows, streaming, awards
+  - GAMING: Video games, esports, game industry
+  - HEALTH: Medical, healthcare, FDA, pharmaceuticals, diseases, wellness
+  - POLICY: Politics, legislation, elections, government, regulations
+  - SCIENCE: Research, space, physics, biology, climate, discoveries
+  - SECURITY: Cybersecurity, data breaches, hacking, privacy
+  - TECH: Hardware, gadgets, consumer technology, EVs, semiconductors
   Choose the single best-fitting category based on the article's primary subject matter.
-  When the article could reasonably fit multiple categories, PREFER these high-value categories: AI, SECURITY, BIZ & IT.
-  Only use CULTURE, GAMING, POLICY, TECH when the article clearly doesn't fit the preferred categories.
+  Distribute evenly — do not bias toward any particular category.
 
 Format your response as:
 TITLE: [Your headline here]

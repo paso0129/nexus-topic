@@ -2,7 +2,7 @@ name: Generate Daily Articles
 
 on:
   schedule:
-    # 매 1시간마다 1개씩 생성 (하루 24개)
+    # 매 1시간마다 11개씩 생성 (카테고리별 1개)
     - cron: '0 * * * *'
   workflow_dispatch:
     inputs:
@@ -14,7 +14,7 @@ on:
 jobs:
   generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +41,7 @@ jobs:
           NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
         run: |
           cd backend
-          python main.py --articles ${{ github.event.inputs.articles || '1' }}
+          python main.py --articles ${{ github.event.inputs.articles || '11' }}
 
       - name: Revalidate frontend cache
         env:
@@ -59,4 +59,4 @@ jobs:
         run: |
           echo "## Article Generation Summary" >> $GITHUB_STEP_SUMMARY
           echo "- Date: $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
-          echo "- Articles requested: ${{ github.event.inputs.articles || '1' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Articles requested: ${{ github.event.inputs.articles || '11' }}" >> $GITHUB_STEP_SUMMARY

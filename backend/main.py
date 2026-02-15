@@ -19,6 +19,9 @@ from typing import Dict, List
 
 from dotenv import load_dotenv
 
+import re as _re
+from collections import defaultdict
+
 from scripts.fetch_trending import get_all_trending_topics
 from scripts.generate_content import generate_multiple_articles
 from scripts.optimize_adsense import optimize_ad_placement, validate_adsense_config
@@ -144,6 +147,165 @@ def load_config(config_path: str = 'config.yaml') -> Dict:
         sys.exit(1)
 
 
+# ---------------------------------------------------------------------------
+# Category-balanced topic selection
+# ---------------------------------------------------------------------------
+
+ALL_CATEGORIES = [
+    'AI', 'BIZ & IT', 'CULTURE', 'ECONOMY', 'ENTERTAINMENT',
+    'GAMING', 'HEALTH', 'POLICY', 'SCIENCE', 'SECURITY', 'TECH',
+]
+
+_CATEGORY_KEYWORDS: Dict[str, List[str]] = {
+    'ENTERTAINMENT': [
+        'movie', 'actor', 'actress', 'celebrity', 'film', 'music', 'concert',
+        'album', 'award', 'oscar', 'grammy', 'emmy', 'netflix', 'disney',
+        'streaming', 'singer', 'rapper', 'box office', 'trailer', 'tv show',
+        'hollywood', 'bollywood', 'k-pop', 'k-drama', 'anime', 'manga',
+        'reality show', 'broadway', 'podcast', 'spotify',
+    ],
+    'ECONOMY': [
+        'stock', 'market', 'inflation', 'gdp', 'trade', 'tariff', 'fed',
+        'interest rate', 'recession', 'earnings', 'ipo', 'crypto', 'bitcoin',
+        'ethereum', 'musk', 'tesla stock', 'wall street', 'bank', 'forex',
+        'economy', 'debt', 'bond', 'commodity', 'oil price', 'gold price',
+        'hedge fund', 'venture capital', 'nasdaq', 'dow jones', 's&p',
+        'central bank', 'monetary', 'fiscal',
+    ],
+    'SCIENCE': [
+        'research', 'discovery', 'space', 'nasa', 'physics', 'biology',
+        'climate', 'species', 'fossil', 'quantum', 'mars', 'telescope',
+        'cern', 'genome', 'neuroscience', 'ecology', 'asteroid', 'comet',
+        'satellite', 'observatory', 'experiment', 'hypothesis', 'journal',
+        'peer review', 'evolution', 'archaeology',
+    ],
+    'HEALTH': [
+        'health', 'medical', 'fda', 'vaccine', 'drug', 'hospital', 'disease',
+        'clinical', 'therapy', 'cancer', 'mental health', 'who', 'pandemic',
+        'pharmaceutical', 'patient', 'surgery', 'diagnosis', 'symptom',
+        'treatment', 'wellness', 'nutrition', 'obesity', 'diabetes',
+        'alzheimer', 'antibiotic', 'biotech',
+    ],
+    'POLICY': [
+        'trump', 'congress', 'legislation', 'election', 'vote', 'president',
+        'white house', 'regulation', 'law', 'sanction', 'government',
+        'senate', 'democrat', 'republican', 'biden', 'supreme court',
+        'executive order', 'immigration', 'diplomacy', 'nato', 'un ',
+        'geopolitics', 'minister', 'parliament',
+    ],
+    'AI': [
+        'artificial intelligence', ' ai ', 'openai', 'chatgpt', 'llm',
+        'machine learning', 'deep learning', 'neural network', 'gpt',
+        'gemini', 'claude', 'anthropic', 'copilot', 'generative ai',
+        'diffusion', 'transformer', 'language model', 'ai model',
+        'ai agent', 'agi',
+    ],
+    'SECURITY': [
+        'cybersecurity', 'hack', 'breach', 'ransomware', 'malware',
+        'vulnerability', 'exploit', 'phishing', 'encryption', 'zero-day',
+        'firewall', 'ddos', 'threat', 'infosec', 'cve-', 'data leak',
+        'cyber attack', 'password', 'authentication',
+    ],
+    'GAMING': [
+        'game', 'gaming', 'playstation', 'xbox', 'nintendo', 'steam',
+        'esports', 'twitch', 'gamer', 'fps', 'rpg', 'mmorpg', 'fortnite',
+        'minecraft', 'valorant', 'league of legends', 'call of duty',
+        'game pass', 'console', 'pc gaming',
+    ],
+    'BIZ & IT': [
+        'startup', 'saas', 'cloud', 'enterprise', 'acquisition', 'merger',
+        'funding', 'revenue', 'profit', 'ceo', 'layoff', 'hiring',
+        'aws', 'azure', 'devops', 'kubernetes', 'microservice',
+        'digital transformation', 'b2b', 'crm', 'erp', 'platform',
+    ],
+    'CULTURE': [
+        'art', 'museum', 'exhibition', 'book', 'novel', 'author',
+        'festival', 'fashion', 'design', 'photography', 'architecture',
+        'philosophy', 'social media trend', 'meme', 'viral', 'lifestyle',
+        'tradition', 'heritage', 'food culture',
+    ],
+    'TECH': [
+        'apple', 'iphone', 'android', 'google', 'samsung', 'chip',
+        'semiconductor', 'processor', 'gpu', 'nvidia', 'amd', 'intel',
+        'gadget', 'robot', 'drone', 'ev ', 'electric vehicle', 'battery',
+        'display', 'vr ', 'ar ', 'wearable', 'smart home', '5g', '6g',
+        'quantum computing', 'blockchain',
+    ],
+}
+
+
+def _quick_classify(keyword: str) -> str:
+    """Classify a topic keyword into a category using keyword matching."""
+    kw_lower = f' {keyword.lower()} '
+    best_cat = 'TECH'
+    best_score = 0
+    for cat, words in _CATEGORY_KEYWORDS.items():
+        score = sum(1 for w in words if w in kw_lower)
+        if score > best_score:
+            best_score = score
+            best_cat = cat
+    return best_cat
+
+
+def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]:
+    """
+    Select topics ensuring each category is represented.
+    Round-robin: pick one topic per category, then fill remaining slots
+    with highest-scoring unused topics.
+    """
+    # Classify all topics
+    buckets: Dict[str, List[Dict]] = defaultdict(list)
+    for t in topics:
+        cat = _quick_classify(t['keyword'])
+        t['_quick_cat'] = cat
+        buckets[cat].append(t)
+
+    logger.info("Category distribution of trending topics:")
+    for cat in ALL_CATEGORIES:
+        logger.info(f"  {cat}: {len(buckets.get(cat, []))} topics")
+
+    selected = []
+    used_indices = set()
+
+    # Round 1: pick best topic from each category
+    for cat in ALL_CATEGORIES:
+        if buckets[cat]:
+            topic = buckets[cat][0]
+            idx = topics.index(topic)
+            if idx not in used_indices:
+                selected.append(topic)
+                used_indices.add(idx)
+
+    # Round 2: fill remaining slots with highest-scoring unused topics
+    remaining = target_count - len(selected)
+    if remaining > 0:
+        for i, t in enumerate(topics):
+            if i not in used_indices:
+                selected.append(t)
+                used_indices.add(i)
+                remaining -= 1
+                if remaining <= 0:
+                    break
+
+    # Fill with generic category keywords if still short
+    for cat in ALL_CATEGORIES:
+        if len(selected) >= target_count:
+            break
+        if not any(t.get('_quick_cat') == cat for t in selected):
+            cat_label = cat.lower().replace(' & ', ' and ')
+            selected.append({
+                'keyword': f'latest {cat_label} trending news today',
+                'source': 'category_fill',
+                'score': 10,
+                'region': 'global',
+                'url': '',
+                '_quick_cat': cat,
+            })
+
+    logger.info(f"Selected {len(selected)} balanced topics for generation")
+    return selected[:target_count]
+
+
 def main():
     """Main execution function."""
     parser = argparse.ArgumentParser(
@@ -245,6 +407,13 @@ Examples:
     except Exception as e:
         logger.error(f"Error fetching trending topics: {e}")
         sys.exit(1)
+
+    # STEP 1.5: Category-balanced topic selection (round-robin)
+    if args.articles >= 5:
+        logger.info("\n" + "=" * 80)
+        logger.info("STEP 1.5: Category-Balanced Topic Selection")
+        logger.info("=" * 80)
+        topics = _select_balanced_topics(topics, args.articles)
 
     # STEP 2: Generate Articles
     logger.info("\n" + "=" * 80)

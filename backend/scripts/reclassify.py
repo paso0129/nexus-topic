@@ -22,8 +22,8 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 VALID_CATEGORIES = [
-    'AI', 'BIZ & IT', 'CARS', 'CULTURE', 'GAMING', 'HEALTH',
-    'KOREA', 'POLICY', 'SCIENCE', 'SECURITY', 'SPACE', 'TECH',
+    'AI', 'BIZ & IT', 'CULTURE', 'ECONOMY', 'ENTERTAINMENT',
+    'GAMING', 'HEALTH', 'POLICY', 'SCIENCE', 'SECURITY', 'TECH',
 ]
 
 _gemini_cli_path = shutil.which('gemini')
