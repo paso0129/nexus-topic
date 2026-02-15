@@ -287,7 +287,38 @@ def get_all_trending_topics(
     all_trends.extend(reddit_trends)
     all_trends.extend(google_trends)
 
-    # Sort by normalized score (descending)
+    # Boost high-CPC category keywords (finance, insurance, legal, health, AI/SaaS, real estate)
+    HIGH_CPC_KEYWORDS = [
+        # Finance & Insurance
+        'insurance', 'mortgage', 'credit', 'loan', 'banking', 'invest', 'stock', 'crypto',
+        'bitcoin', 'ethereum', 'finance', 'tax', 'trading', 'hedge fund', 'interest rate',
+        'federal reserve', 'inflation', 'recession', 'economy', 'GDP', 'earnings',
+        # Legal
+        'lawsuit', 'regulation', 'compliance', 'patent', 'antitrust', 'court', 'legal',
+        'privacy', 'GDPR', 'settlement',
+        # Health & Pharma
+        'health', 'medical', 'pharma', 'drug', 'FDA', 'clinical trial', 'vaccine',
+        'healthcare', 'biotech', 'cancer', 'disease', 'therapy',
+        # AI & SaaS & Tech Enterprise
+        'artificial intelligence', ' AI ', 'machine learning', 'SaaS', 'cloud', 'enterprise',
+        'cybersecurity', 'data breach', 'ransomware', 'startup', 'valuation', 'IPO',
+        'acquisition', 'merger', 'funding', 'venture capital',
+        # Real Estate
+        'real estate', 'housing', 'property', 'rent', 'construction',
+        # Energy
+        'oil', 'energy', 'solar', 'EV ', 'electric vehicle', 'battery', 'nuclear',
+    ]
+
+    for trend in all_trends:
+        keyword_lower = trend['keyword'].lower()
+        cpc_matches = sum(1 for kw in HIGH_CPC_KEYWORDS if kw.lower().strip() in keyword_lower)
+        if cpc_matches > 0:
+            # Boost score by 30% per matching CPC keyword, cap at 2x
+            multiplier = min(1.0 + (0.3 * cpc_matches), 2.0)
+            trend['score'] = round(trend['score'] * multiplier)
+            trend['cpc_boost'] = True
+
+    # Sort by boosted score (descending)
     all_trends.sort(key=lambda x: x['score'], reverse=True)
 
     # Remove duplicates (keep highest score) - word overlap similarity check
