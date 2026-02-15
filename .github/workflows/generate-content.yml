@@ -2,18 +2,14 @@ name: Generate Daily Articles
 
 on:
   schedule:
-    # 매일 UTC 01:00 (한국시간 10:00)
-    - cron: '0 1 * * *'
-    # 매일 UTC 09:00 (한국시간 18:00)
-    - cron: '0 9 * * *'
-    # 매일 UTC 17:00 (한국시간 02:00)
-    - cron: '0 17 * * *'
+    # 매 2시간마다 1개씩 생성 (하루 12개)
+    - cron: '0 */2 * * *'
   workflow_dispatch:
     inputs:
       articles:
         description: 'Number of articles to generate'
         required: false
-        default: '5'
+        default: '1'
 
 jobs:
   generate:
@@ -44,7 +40,7 @@ jobs:
           UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
         run: |
           cd backend
-          python main.py --articles ${{ github.event.inputs.articles || '5' }}
+          python main.py --articles ${{ github.event.inputs.articles || '1' }}
 
       - name: Revalidate frontend cache
         env:
@@ -62,4 +58,4 @@ jobs:
         run: |
           echo "## Article Generation Summary" >> $GITHUB_STEP_SUMMARY
           echo "- Date: $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
-          echo "- Articles requested: ${{ github.event.inputs.articles || '5' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Articles requested: ${{ github.event.inputs.articles || '1' }}" >> $GITHUB_STEP_SUMMARY
