@@ -99,11 +99,24 @@ def validate_environment() -> None:
     else:
         logger.info("⊘ Supabase not enabled, using JSON-only mode")
 
-    # Check Unsplash API key (optional)
-    if os.getenv('UNSPLASH_ACCESS_KEY'):
-        logger.info("✓ Unsplash API key found")
+    # Check Gemini image generation capability
+    _can_generate_images = os.getenv('GOOGLE_API_KEY') is not None
+    try:
+        from google import genai as _genai_check
+        _can_generate_images = _can_generate_images and True
+    except ImportError:
+        _can_generate_images = False
+
+    if _can_generate_images:
+        logger.info("✓ Gemini image generation available (google-genai + API key)")
     else:
-        logger.info("⊘ Unsplash API key not set (images will be skipped)")
+        logger.info("⊘ Gemini image generation not available (needs google-genai + GOOGLE_API_KEY)")
+
+    # Check Unsplash API key (fallback images)
+    if os.getenv('UNSPLASH_ACCESS_KEY'):
+        logger.info("✓ Unsplash API key found (fallback images)")
+    else:
+        logger.info("⊘ Unsplash API key not set (fallback images disabled)")
 
     logger.info("Environment validation complete\n")
 
@@ -273,7 +286,7 @@ Examples:
     # STEP 2.6: Fetch Unsplash Cover Images
     if not args.no_images:
         logger.info("\n" + "=" * 80)
-        logger.info("STEP 2.6: Fetching Unsplash Cover Images")
+        logger.info("STEP 2.6: Generating Cover Images (Gemini AI + Unsplash fallback)")
         logger.info("=" * 80)
 
         try:
@@ -284,7 +297,7 @@ Examples:
             logger.warning(f"Error fetching images: {e}")
             logger.warning("Continuing without cover images...")
     else:
-        logger.info("\n⊘ Skipping Unsplash image fetch (--no-images flag)")
+        logger.info("\n⊘ Skipping image generation (--no-images flag)")
 
     # STEP 3: Optimize with AdSense
     if not args.no_adsense:
