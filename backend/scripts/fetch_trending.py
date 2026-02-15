@@ -4,10 +4,17 @@ Trending Topic Fetcher
 Collects trending topics from multiple sources:
 - Google Trends
 - HackerNews
+- Dev.to
+- Product Hunt
+- TechCrunch (RSS)
+- The Verge (RSS)
+- NewsAPI
 """
 
 import logging
+import os
 import re
+import xml.etree.ElementTree as ET
 from typing import List, Dict
 from datetime import datetime
 
@@ -136,6 +143,179 @@ def fetch_hackernews_top(limit: int = 10) -> List[Dict]:
     return trends_list
 
 
+def fetch_devto_trending(limit: int = 10) -> List[Dict]:
+    """Fetch trending articles from Dev.to."""
+    logger.info(f"Fetching top {limit} Dev.to articles")
+    trends_list = []
+
+    try:
+        response = requests.get(
+            'https://dev.to/api/articles',
+            params={'top': 1, 'per_page': limit},
+            headers={'User-Agent': 'NexusTopic/1.0'},
+            timeout=10,
+        )
+        response.raise_for_status()
+        articles = response.json()
+
+        for article in articles:
+            trends_list.append({
+                'keyword': article['title'],
+                'source': 'devto',
+                'score': article.get('public_reactions_count', 0),
+                'region': 'global',
+                'url': article.get('url', ''),
+                'timestamp': datetime.now().isoformat(),
+            })
+
+        logger.info(f"Fetched {len(trends_list)} articles from Dev.to")
+
+    except Exception as e:
+        logger.warning(f"Dev.to fetch failed: {str(e)}")
+
+    return trends_list
+
+
+def fetch_producthunt(limit: int = 10) -> List[Dict]:
+    """Fetch today's top products from Product Hunt via Atom feed."""
+    logger.info(f"Fetching top {limit} Product Hunt items")
+    trends_list = []
+    atom_ns = '{http://www.w3.org/2005/Atom}'
+
+    try:
+        response = requests.get(
+            'https://www.producthunt.com/feed',
+            headers={'User-Agent': 'Mozilla/5.0'},
+            timeout=15,
+        )
+        response.raise_for_status()
+
+        root = ET.fromstring(response.text)
+        entries = root.findall(f'{atom_ns}entry')
+
+        for idx, entry in enumerate(entries[:limit]):
+            title = entry.find(f'{atom_ns}title')
+            link = entry.find(f'{atom_ns}link')
+            if title is not None and title.text:
+                link_url = link.get('href', '') if link is not None else ''
+                trends_list.append({
+                    'keyword': title.text,
+                    'source': 'producthunt',
+                    'score': limit - idx,
+                    'region': 'global',
+                    'url': link_url,
+                    'timestamp': datetime.now().isoformat(),
+                })
+
+        logger.info(f"Fetched {len(trends_list)} items from Product Hunt")
+
+    except Exception as e:
+        logger.warning(f"Product Hunt fetch failed: {str(e)}")
+
+    return trends_list
+
+
+def fetch_tech_rss(limit: int = 10) -> List[Dict]:
+    """Fetch latest articles from TechCrunch and The Verge via RSS."""
+    logger.info("Fetching TechCrunch + The Verge RSS")
+    trends_list = []
+
+    feeds = [
+        ('https://techcrunch.com/feed/', 'techcrunch'),
+        ('https://www.theverge.com/rss/index.xml', 'theverge'),
+    ]
+
+    for feed_url, source_name in feeds:
+        try:
+            response = requests.get(
+                feed_url,
+                headers={'User-Agent': 'Mozilla/5.0'},
+                timeout=15,
+            )
+            response.raise_for_status()
+
+            root = ET.fromstring(response.text)
+            # Handle both RSS <item> and Atom <entry>
+            items = root.findall('.//{http://www.w3.org/2005/Atom}entry') or root.findall('.//item')
+
+            count = 0
+            for idx, item in enumerate(items[:limit]):
+                # Try Atom <title> then RSS <title>
+                title = item.find('{http://www.w3.org/2005/Atom}title')
+                if title is None:
+                    title = item.find('title')
+                link = item.find('{http://www.w3.org/2005/Atom}link')
+                if link is None:
+                    link = item.find('link')
+
+                if title is not None and title.text:
+                    link_url = ''
+                    if link is not None:
+                        link_url = link.get('href', '') or link.text or ''
+
+                    trends_list.append({
+                        'keyword': title.text.strip(),
+                        'source': source_name,
+                        'score': limit - idx,
+                        'region': 'global',
+                        'url': link_url,
+                        'timestamp': datetime.now().isoformat(),
+                    })
+                    count += 1
+
+            logger.info(f"Fetched {count} articles from {source_name}")
+
+        except Exception as e:
+            logger.warning(f"{source_name} RSS fetch failed: {str(e)}")
+            continue
+
+    return trends_list
+
+
+def fetch_newsapi(limit: int = 10) -> List[Dict]:
+    """Fetch top tech headlines from NewsAPI."""
+    api_key = os.environ.get('NEWSAPI_KEY')
+    if not api_key:
+        logger.info("NEWSAPI_KEY not set, skipping NewsAPI")
+        return []
+
+    logger.info(f"Fetching top {limit} NewsAPI headlines")
+    trends_list = []
+
+    try:
+        response = requests.get(
+            'https://newsapi.org/v2/top-headlines',
+            params={
+                'category': 'technology',
+                'language': 'en',
+                'pageSize': limit,
+                'apiKey': api_key,
+            },
+            timeout=10,
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        for idx, article in enumerate(data.get('articles', [])):
+            title = article.get('title', '')
+            if title and title != '[Removed]':
+                trends_list.append({
+                    'keyword': title,
+                    'source': 'newsapi',
+                    'score': limit - idx,
+                    'region': 'global',
+                    'url': article.get('url', ''),
+                    'timestamp': datetime.now().isoformat(),
+                })
+
+        logger.info(f"Fetched {len(trends_list)} headlines from NewsAPI")
+
+    except Exception as e:
+        logger.warning(f"NewsAPI fetch failed: {str(e)}")
+
+    return trends_list
+
+
 def get_all_trending_topics(
     markets: List[str] = ['US', 'UK', 'CA'],
     subreddits: List[str] = None,
@@ -158,6 +338,10 @@ def get_all_trending_topics(
 
     hn_trends = fetch_hackernews_top(limit=limit_per_source)
     google_trends = fetch_google_trends(markets=markets, limit=limit_per_source)
+    devto_trends = fetch_devto_trending(limit=limit_per_source)
+    ph_trends = fetch_producthunt(limit=limit_per_source)
+    rss_trends = fetch_tech_rss(limit=limit_per_source)
+    newsapi_trends = fetch_newsapi(limit=limit_per_source)
 
     # Normalize scores to 0-100 scale so different sources are comparable
     def _normalize(trends: list) -> list:
@@ -171,10 +355,18 @@ def get_all_trending_topics(
 
     _normalize(hn_trends)
     _normalize(google_trends)
+    _normalize(devto_trends)
+    _normalize(ph_trends)
+    _normalize(rss_trends)
+    _normalize(newsapi_trends)
 
     # Combine all sources
     all_trends.extend(hn_trends)
     all_trends.extend(google_trends)
+    all_trends.extend(devto_trends)
+    all_trends.extend(ph_trends)
+    all_trends.extend(rss_trends)
+    all_trends.extend(newsapi_trends)
 
     # Boost high-CPC category keywords (finance, insurance, legal, health, AI/SaaS, real estate)
     HIGH_CPC_KEYWORDS = [
@@ -237,7 +429,9 @@ def get_all_trending_topics(
             unique_trends.append(trend)
 
     logger.info(f"Total trending topics collected: {len(unique_trends)} (from {len(all_trends)} raw)")
-    logger.info(f"Sources: HackerNews={len(hn_trends)}, Google={len(google_trends)}")
+    logger.info(f"Sources: HackerNews={len(hn_trends)}, Google={len(google_trends)}, "
+                f"Dev.to={len(devto_trends)}, ProductHunt={len(ph_trends)}, "
+                f"RSS={len(rss_trends)}, NewsAPI={len(newsapi_trends)}")
 
     return unique_trends
 

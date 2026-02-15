@@ -2,8 +2,8 @@ name: Generate Daily Articles
 
 on:
   schedule:
-    # 매 2시간마다 1개씩 생성 (하루 12개)
-    - cron: '0 */2 * * *'
+    # 매 1시간마다 1개씩 생성 (하루 24개)
+    - cron: '0 * * * *'
   workflow_dispatch:
     inputs:
       articles:
@@ -38,6 +38,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           USE_SUPABASE: 'true'
           UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
         run: |
           cd backend
           python main.py --articles ${{ github.event.inputs.articles || '1' }}
