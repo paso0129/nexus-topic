@@ -23,6 +23,16 @@ jobs:
           cd backend
           pip install -r requirements.txt
 
+      - name: Fix broken images
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          USE_SUPABASE: 'true'
+        run: |
+          cd backend
+          python fix_broken_images.py
+
       - name: Backfill missing images
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
