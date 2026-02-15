@@ -277,7 +277,8 @@ Do NOT include <html>, <head>, or <body> tags - just the article content.
 Also provide:
 - A compelling news headline (under 60 characters) that captures the trending aspect
 - A meta description (under 160 characters) that explains why this is trending
-- A CATEGORY from this exact list: AI, BIZ & IT, CULTURE, GAMING, POLICY, SECURITY, TECH
+- A CATEGORY from this exact list: AI, BIZ & IT, CULTURE, GAMING, KOREA, POLICY, SECURITY, TECH
+  Use KOREA for articles about Korean entertainment, K-pop, K-drama, Korean celebrities, and Korean pop culture.
   Choose the single best-fitting category based on the article's primary subject matter.
   When the article could reasonably fit multiple categories, PREFER these high-value categories: AI, SECURITY, BIZ & IT.
   Only use CULTURE, GAMING, POLICY, TECH when the article clearly doesn't fit the preferred categories.

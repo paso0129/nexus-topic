@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 VALID_CATEGORIES = [
     'AI', 'BIZ & IT', 'CARS', 'CULTURE', 'GAMING', 'HEALTH',
-    'POLICY', 'SCIENCE', 'SECURITY', 'SPACE', 'TECH',
+    'KOREA', 'POLICY', 'SCIENCE', 'SECURITY', 'SPACE', 'TECH',
 ]
 
 _gemini_cli_path = shutil.which('gemini')
