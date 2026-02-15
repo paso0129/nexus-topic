@@ -249,7 +249,7 @@ CRITICAL REQUIREMENTS:
 
 Article Requirements:
 - Target audience: {target_audience}
-- Word count: {min_words}-{max_words} words
+- Word count: MINIMUM {min_words} words, target {max_words} words. This is CRITICAL - articles under {min_words} words will be rejected. Write detailed, in-depth analysis to meet this requirement
 - Format: HTML with proper semantic tags (h2, h3, p, ul, ol, strong, em)
 - Style: News-style, authoritative, analytical
 - SEO: Include relevant keywords naturally throughout
@@ -354,14 +354,30 @@ def generate_article(
         source_url=source_url,
     )
 
+    def _try_generate(provider_name, generate_fn, max_retries=2):
+        """Try generating and retry once if word count is too low."""
+        for retry in range(max_retries):
+            response_text = generate_fn()
+            article = _parse_response(response_text, topic)
+            wc = article.get('word_count', 0)
+            if wc >= min_words:
+                logger.info(f"[{provider_name}] Article generated: {article['title']} ({wc} words)")
+                return article
+            if retry < max_retries - 1:
+                logger.warning(f"[{provider_name}] Article too short ({wc}/{min_words} words), retrying...")
+                time.sleep(3)
+            else:
+                logger.warning(f"[{provider_name}] Article still short ({wc}/{min_words} words), accepting anyway")
+                return article
+        return None
+
     # Primary: Gemini CLI (gemini-2.5-pro, Google account auth)
     if _gemini_cli_path:
         try:
-            response_text = _generate_with_gemini_cli(prompt)
-            article = _parse_response(response_text, topic)
-            logger.info(f"[Gemini CLI] Article generated: {article['title']} ({article['word_count']} words)")
-            article['_provider'] = 'gemini-cli'
-            return article
+            article = _try_generate('Gemini CLI', lambda: _generate_with_gemini_cli(prompt))
+            if article:
+                article['_provider'] = 'gemini-cli'
+                return article
         except Exception as e:
             logger.warning(f"Gemini CLI failed: {e}")
 
@@ -373,12 +389,11 @@ def generate_article(
                     wait = 30 * attempt
                     logger.info(f"Rate limit retry {attempt}/3, waiting {wait}s...")
                     time.sleep(wait)
-                response_text = _generate_with_gemini_api(prompt)
-                article = _parse_response(response_text, topic)
-                logger.info(f"[Gemini API] Article generated: {article['title']} ({article['word_count']} words)")
-                article['_provider'] = 'gemini-api'
-                time.sleep(5)
-                return article
+                article = _try_generate('Gemini API', lambda: _generate_with_gemini_api(prompt))
+                if article:
+                    article['_provider'] = 'gemini-api'
+                    time.sleep(5)
+                    return article
             except Exception as e:
                 if '429' in str(e) or 'quota' in str(e).lower() or 'rate' in str(e).lower():
                     logger.warning(f"Gemini API rate limit hit (attempt {attempt+1}/3)")
