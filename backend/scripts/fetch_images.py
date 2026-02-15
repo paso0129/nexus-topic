@@ -152,7 +152,7 @@ def generate_gemini_image(article: Dict) -> Optional[str]:
     try:
         client = genai_new.Client(api_key=api_key)
         response = client.models.generate_content(
-            model="gemini-2.5-flash-preview-image-generation",
+            model="gemini-2.5-flash-image",
             contents=prompt,
             config=genai_types.GenerateContentConfig(
                 response_modalities=["IMAGE", "TEXT"],
