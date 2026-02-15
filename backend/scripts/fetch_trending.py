@@ -313,9 +313,9 @@ def get_all_trending_topics(
         keyword_lower = trend['keyword'].lower()
         cpc_matches = sum(1 for kw in HIGH_CPC_KEYWORDS if kw.lower().strip() in keyword_lower)
         if cpc_matches > 0:
-            # Boost score by 30% per matching CPC keyword, cap at 2x
-            multiplier = min(1.0 + (0.3 * cpc_matches), 2.0)
-            trend['score'] = round(trend['score'] * multiplier)
+            # Boost score by 50% per matching CPC keyword, cap at 3x
+            multiplier = min(1.0 + (0.5 * cpc_matches), 3.0)
+            trend['score'] = max(round(trend['score'] * multiplier), 50)
             trend['cpc_boost'] = True
 
     # Sort by boosted score (descending)
