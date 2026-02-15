@@ -1,0 +1,45 @@
+name: Backfill Missing Article Images
+
+on:
+  workflow_dispatch:
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      - name: Backfill missing images
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          USE_SUPABASE: 'true'
+        run: |
+          cd backend
+          python backfill_images.py
+
+      - name: Revalidate frontend cache
+        env:
+          REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
+        run: |
+          echo "Revalidating frontend cache..."
+          curl -s -X POST "https://www.nexustopic.com/api/revalidate" \
+            -H "Authorization: Bearer $REVALIDATION_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{}' || true
+          echo "Frontend cache revalidated"
