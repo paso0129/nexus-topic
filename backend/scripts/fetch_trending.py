@@ -146,7 +146,10 @@ def fetch_reddit_trending(
 
     # Fallback: public JSON API (no auth needed)
     import time as _time
-    headers = {'User-Agent': 'NexusTopic/1.0'}
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+    }
 
     for subreddit_name in subreddits:
         try:
