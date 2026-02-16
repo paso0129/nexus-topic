@@ -2,8 +2,8 @@ name: Generate Daily Articles
 
 on:
   schedule:
-    # 매 1시간마다 11개씩 생성 (카테고리별 1개)
-    - cron: '0 * * * *'
+    # 4시간마다 11개씩 생성 (카테고리별 1개)
+    - cron: '0 */4 * * *'
   workflow_dispatch:
     inputs:
       articles:
