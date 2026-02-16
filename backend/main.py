@@ -249,9 +249,9 @@ def _quick_classify(keyword: str) -> str:
 
 def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]:
     """
-    Select topics ensuring each category is represented.
-    Round-robin: pick one topic per category, then fill remaining slots
-    with highest-scoring unused topics.
+    Select topics with category balance, providing extras for duplicate fallback.
+    Returns ~3x target_count topics, ordered: round-robin primary picks first,
+    then alternates per category, then remaining by score.
     """
     # Classify all topics
     buckets: Dict[str, List[Dict]] = defaultdict(list)
@@ -265,45 +265,39 @@ def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]
         logger.info(f"  {cat}: {len(buckets.get(cat, []))} topics")
 
     selected = []
-    used_indices = set()
+    used = set()
 
-    # Round 1: pick best topic from each category
+    # Round-robin: pick up to 3 topics per category (primary + alternates)
+    max_per_cat = 3
+    for round_idx in range(max_per_cat):
+        for cat in ALL_CATEGORIES:
+            if round_idx < len(buckets[cat]):
+                topic = buckets[cat][round_idx]
+                topic_id = id(topic)
+                if topic_id not in used:
+                    selected.append(topic)
+                    used.add(topic_id)
+
+    # Fill remaining with highest-scoring unused topics
+    for t in topics:
+        if id(t) not in used:
+            selected.append(t)
+            used.add(id(t))
+
+    # Append generic category keywords as last resort
     for cat in ALL_CATEGORIES:
-        if buckets[cat]:
-            topic = buckets[cat][0]
-            idx = topics.index(topic)
-            if idx not in used_indices:
-                selected.append(topic)
-                used_indices.add(idx)
+        cat_label = cat.lower().replace(' & ', ' and ')
+        selected.append({
+            'keyword': f'latest {cat_label} trending news today',
+            'source': 'category_fill',
+            'score': 10,
+            'region': 'global',
+            'url': '',
+            '_quick_cat': cat,
+        })
 
-    # Round 2: fill remaining slots with highest-scoring unused topics
-    remaining = target_count - len(selected)
-    if remaining > 0:
-        for i, t in enumerate(topics):
-            if i not in used_indices:
-                selected.append(t)
-                used_indices.add(i)
-                remaining -= 1
-                if remaining <= 0:
-                    break
-
-    # Fill with generic category keywords if still short
-    for cat in ALL_CATEGORIES:
-        if len(selected) >= target_count:
-            break
-        if not any(t.get('_quick_cat') == cat for t in selected):
-            cat_label = cat.lower().replace(' & ', ' and ')
-            selected.append({
-                'keyword': f'latest {cat_label} trending news today',
-                'source': 'category_fill',
-                'score': 10,
-                'region': 'global',
-                'url': '',
-                '_quick_cat': cat,
-            })
-
-    logger.info(f"Selected {len(selected)} balanced topics for generation")
-    return selected[:target_count]
+    logger.info(f"Prepared {len(selected)} candidate topics (target: {target_count})")
+    return selected
 
 
 def main():
