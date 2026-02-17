@@ -39,6 +39,7 @@ jobs:
           USE_SUPABASE: 'true'
           UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
           NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
+          GOOGLE_INDEXING_SA_KEY: ${{ secrets.GOOGLE_INDEXING_SA_KEY }}
         run: |
           cd backend
           python main.py --articles ${{ github.event.inputs.articles || '11' }}

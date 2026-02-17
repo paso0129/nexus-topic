@@ -529,6 +529,32 @@ Examples:
         logger.error(f"Error saving articles: {e}")
         sys.exit(1)
 
+    # STEP 5: Google Indexing Notification
+    logger.info("\n" + "=" * 80)
+    logger.info("STEP 5: Google Indexing API Notification")
+    logger.info("=" * 80)
+
+    try:
+        from scripts.notify_indexing import notify_urls
+
+        saved_slugs = [r['slug'] for r in results if r['success']]
+        if saved_slugs:
+            article_urls = [
+                f"https://www.nexustopic.com/article/{slug}"
+                for slug in saved_slugs
+            ]
+            logger.info(f"Notifying Google about {len(article_urls)} new article(s)...")
+            idx_result = notify_urls(article_urls)
+            logger.info(
+                f"✓ Indexing notification complete: "
+                f"{idx_result['success']} succeeded, {idx_result['failed']} failed"
+            )
+        else:
+            logger.info("No successfully saved articles to notify.")
+    except Exception as e:
+        logger.warning(f"Google Indexing notification failed: {e}")
+        logger.warning("Continuing without indexing notification...")
+
     # Final Summary
     logger.info("\n" + "=" * 80)
     logger.info("AUTOMATION COMPLETE")
