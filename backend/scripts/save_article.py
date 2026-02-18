@@ -15,6 +15,29 @@ from pathlib import Path
 
 import requests
 
+# Category-to-author mapping (must match frontend src/lib/authors.ts)
+CATEGORY_AUTHOR_MAP = {
+    'AI':            {'name': 'Alex Chen', 'bio': 'Covers AI, cybersecurity, and emerging technologies.'},
+    'TECH':          {'name': 'Alex Chen', 'bio': 'Covers AI, cybersecurity, and emerging technologies.'},
+    'SECURITY':      {'name': 'Alex Chen', 'bio': 'Covers AI, cybersecurity, and emerging technologies.'},
+    'SCIENCE':       {'name': 'Alex Chen', 'bio': 'Covers AI, cybersecurity, and emerging technologies.'},
+    'BIZ & IT':      {'name': 'Sarah Mitchell', 'bio': 'Specializes in tech policy, digital economy, and business strategy.'},
+    'POLICY':        {'name': 'Sarah Mitchell', 'bio': 'Specializes in tech policy, digital economy, and business strategy.'},
+    'ECONOMY':       {'name': 'Sarah Mitchell', 'bio': 'Specializes in tech policy, digital economy, and business strategy.'},
+    'HEALTH':        {'name': 'Sarah Mitchell', 'bio': 'Specializes in tech policy, digital economy, and business strategy.'},
+    'KOREA':         {'name': 'Sarah Mitchell', 'bio': 'Specializes in tech policy, digital economy, and business strategy.'},
+    'CULTURE':       {'name': 'Maya Rodriguez', 'bio': 'Covers gaming, pop culture, and entertainment trends.'},
+    'GAMING':        {'name': 'Maya Rodriguez', 'bio': 'Covers gaming, pop culture, and entertainment trends.'},
+    'ENTERTAINMENT': {'name': 'Maya Rodriguez', 'bio': 'Covers gaming, pop culture, and entertainment trends.'},
+}
+DEFAULT_AUTHOR = {'name': 'Alex Chen', 'bio': 'Covers AI, cybersecurity, and emerging technologies.'}
+
+
+def _get_author_for_topic(topic: str) -> Dict[str, str]:
+    """Return the appropriate author dict based on article topic/category."""
+    return CATEGORY_AUTHOR_MAP.get((topic or '').upper(), DEFAULT_AUTHOR)
+
+
 # Import database client
 try:
     from scripts.database import get_db_client, is_supabase_enabled
@@ -102,10 +125,7 @@ def save_article_to_database(article: Dict) -> bool:
             published=True,
             featured_image=article.get('featured_image', ''),
             image_attribution=article.get('image_attribution', {}),
-            author={
-                'name': 'NexusTopic Editorial Team',
-                'bio': 'Delivering the latest trending topics and insights'
-            },
+            author=_get_author_for_topic(article.get('topic', '')),
             source_data=source_data if source_data else None
         )
 
