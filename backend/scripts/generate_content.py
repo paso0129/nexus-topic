@@ -8,6 +8,7 @@ Generates SEO-optimized blog articles using:
 
 import logging
 import os
+import random
 import re
 import subprocess
 import shutil
@@ -404,11 +405,17 @@ def generate_article(
     Primary: Gemini 2.5 Pro via CLI
     Fallback: Gemini API (gemini-3-flash-preview)
     """
+    # Randomize word count target within the given range for natural variation
+    target = random.randint(min_words, max_words)
+    # Set effective min to ~70% of target, effective max to target
+    effective_min = max(min_words, int(target * 0.7))
+    effective_max = target
+
     logger.info(f"Generating article about: {topic}")
-    logger.info(f"Target length: {min_words}-{max_words} words")
+    logger.info(f"Target length: {effective_min}-{effective_max} words (from range {min_words}-{max_words})")
 
     prompt = _build_prompt(
-        topic, min_words, max_words, target_audience,
+        topic, effective_min, effective_max, target_audience,
         existing_articles=existing_articles,
         source_url=source_url,
     )
@@ -419,14 +426,14 @@ def generate_article(
             response_text = generate_fn()
             article = _parse_response(response_text, topic)
             wc = article.get('word_count', 0)
-            if wc >= min_words:
+            if wc >= effective_min:
                 logger.info(f"[{provider_name}] Article generated: {article['title']} ({wc} words)")
                 return article
             if retry < max_retries - 1:
-                logger.warning(f"[{provider_name}] Article too short ({wc}/{min_words} words), retrying...")
+                logger.warning(f"[{provider_name}] Article too short ({wc}/{effective_min} words), retrying...")
                 time.sleep(3)
             else:
-                logger.warning(f"[{provider_name}] Article still short ({wc}/{min_words} words), accepting anyway")
+                logger.warning(f"[{provider_name}] Article still short ({wc}/{effective_min} words), accepting anyway")
                 return article
         return None
 
