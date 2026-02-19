@@ -28,6 +28,7 @@ from scripts.optimize_adsense import optimize_ad_placement, validate_adsense_con
 from scripts.save_article import save_multiple_articles
 from scripts.fetch_images import fetch_images_for_articles
 from scripts.reclassify import classify_articles
+from scripts.validate_links import validate_article_links
 
 # Import database utilities
 try:
@@ -444,6 +445,18 @@ Examples:
     except Exception as e:
         logger.warning(f"Category verification failed: {e}")
         logger.warning("Continuing with original categories...")
+
+    # STEP 2.7: Validate External Links
+    logger.info("\n" + "=" * 80)
+    logger.info("STEP 2.7: Validating External Links")
+    logger.info("=" * 80)
+
+    try:
+        articles = validate_article_links(articles)
+        logger.info("✓ External link validation complete")
+    except Exception as e:
+        logger.warning(f"Link validation failed: {e}")
+        logger.warning("Continuing with unvalidated links...")
 
     # STEP 2.6: Fetch Unsplash Cover Images
     if not args.no_images:
