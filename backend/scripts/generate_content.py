@@ -374,9 +374,13 @@ The article MUST include these elements (but DO NOT use these exact headings —
 2. **The "So What?" context** — Why should a busy reader care about this RIGHT NOW? What changes for them?
 3. **Data & evidence** — Include at least 2-3 specific statistics, market figures, user numbers, or research findings. Use <strong> tags to highlight key numbers
 4. **An angle others are missing** — What are mainstream outlets NOT saying? What's the deeper pattern or second-order effect?
-5. **Stakeholder perspectives** — How are different groups (users, companies, regulators, critics) responding differently?
-6. **Your editorial take** — A clearly labeled opinion section (use <blockquote> for editorial commentary). What do YOU think this means for the industry/society?
-7. **What to watch next** — Specific upcoming dates, decisions, or milestones that will determine what happens next
+5. **Comparison with precedent** — Compare this to a previous similar event or the existing approach. Example: "Compared to method A, this new approach B is innovative because..." or "The last time something like this happened was in 2021, and here's what followed."
+6. **Your editorial take** — A clearly labeled opinion section (use <blockquote> for editorial commentary). What do YOU think this means?
+7. **Future impact projection** — THIS IS CRITICAL. Do NOT end with vague platitudes. Instead, make a SPECIFIC prediction:
+   - "If this technology reaches commercial scale, expect [specific change] in [specific industry] within [timeframe]"
+   - "For professionals in [specific field], this signals that [specific actionable insight]"
+   - "The downstream effect I'm watching: [specific second-order consequence that isn't obvious]"
+   This is the section that separates human insight from AI regurgitation. Be bold. Be specific. Be willing to be wrong.
 
 STYLE GUIDE:
 - Write like a columnist, not a wire service — personality and perspective matter
@@ -384,7 +388,7 @@ STYLE GUIDE:
 - Use <blockquote> for editorial asides: "Editor's take: This is bigger than it looks because..."
 - Embed data naturally: "That 47% year-over-year jump isn't just impressive — it's unprecedented in this sector"
 - Use analogies and comparisons to make complex topics accessible
-- End with a forward-looking statement that's specific, not vague
+- End with your specific prediction, not a vague "time will tell" cop-out
 
 Format: HTML only (h2, h3, p, ul, ol, strong, em, blockquote). No <html>/<head>/<body> tags.
 
