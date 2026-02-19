@@ -1,0 +1,45 @@
+name: Reindex All Pages (Google Indexing API)
+
+on:
+  workflow_dispatch:
+    inputs:
+      include_static:
+        description: 'Include static pages and category pages'
+        required: false
+        default: 'true'
+
+jobs:
+  reindex:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      - name: Run batch indexing
+        env:
+          GOOGLE_INDEXING_SA_KEY: ${{ secrets.GOOGLE_INDEXING_SA_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          cd backend
+          python -m scripts.batch_index
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Reindexing Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Date: $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- Triggered by: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY

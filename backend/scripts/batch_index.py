@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 """
-One-off script: Send Google Indexing API notifications for existing articles.
-Usage: cd backend && python -m scripts.batch_index --limit 120
+Google Indexing API batch notification tool.
+
+Sends URL_UPDATED for current articles and static pages,
+and URL_DELETED for removed articles.
+
+Usage:
+  cd backend && python -m scripts.batch_index                    # Index current articles + static pages
+  cd backend && python -m scripts.batch_index --deleted SLUG1 SLUG2  # Notify deleted URLs
+  cd backend && python -m scripts.batch_index --full-cleanup     # Index current + delete old URLs from sitemap diff
 """
 
 import argparse
@@ -22,9 +29,20 @@ logger = logging.getLogger(__name__)
 
 SITE_URL = "https://www.nexustopic.com"
 
+# Static pages that should always be indexed
+STATIC_PAGES = [
+    "",              # homepage
+    "/about",
+    "/contact",
+    "/terms",
+    "/privacy",
+    "/archive",
+    "/search",
+]
 
-def fetch_recent_slugs(limit: int) -> list[str]:
-    """Fetch the most recent article slugs from Supabase."""
+
+def fetch_current_slugs() -> list[str]:
+    """Fetch all current article slugs from Supabase."""
     from supabase import create_client
 
     url = os.getenv("SUPABASE_URL")
@@ -39,37 +57,67 @@ def fetch_recent_slugs(limit: int) -> list[str]:
         .select("slug")
         .eq("published", True)
         .order("created_at", desc=True)
-        .limit(limit)
         .execute()
     )
     return [row["slug"] for row in resp.data]
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Batch index existing articles")
-    parser.add_argument("--limit", type=int, default=120, help="Number of recent articles")
+    parser = argparse.ArgumentParser(description="Batch index articles via Google Indexing API")
+    parser.add_argument("--deleted", nargs="*", default=None,
+                        help="Slugs of deleted articles to send URL_DELETED for")
+    parser.add_argument("--deleted-urls", nargs="*", default=None,
+                        help="Full URLs of deleted pages to send URL_DELETED for")
+    parser.add_argument("--skip-static", action="store_true",
+                        help="Skip indexing static pages")
     args = parser.parse_args()
-
-    logger.info(f"Fetching {args.limit} most recent article slugs from Supabase...")
-    slugs = fetch_recent_slugs(args.limit)
-    logger.info(f"Found {len(slugs)} articles")
-
-    if not slugs:
-        logger.info("No articles to index.")
-        return
-
-    urls = [f"{SITE_URL}/article/{slug}" for slug in slugs]
 
     from scripts.notify_indexing import notify_urls
 
-    logger.info(f"Sending indexing notifications for {len(urls)} URLs...")
-    result = notify_urls(urls)
-    logger.info(
-        f"Done: {result['success']} succeeded, {result['failed']} failed"
-    )
+    # 1. Index current articles (URL_UPDATED)
+    logger.info("Fetching current article slugs from Supabase...")
+    slugs = fetch_current_slugs()
+    logger.info(f"Found {len(slugs)} current articles")
+
+    update_urls = [f"{SITE_URL}/article/{slug}" for slug in slugs]
+
+    # Add static pages
+    if not args.skip_static:
+        static_urls = [f"{SITE_URL}{page}" for page in STATIC_PAGES]
+        update_urls.extend(static_urls)
+        logger.info(f"Added {len(static_urls)} static pages")
+
+    # Add category pages
+    categories = ["it-biz", "culture", "economy", "entertainment",
+                   "gaming", "health", "policy", "science", "security", "tech"]
+    cat_urls = [f"{SITE_URL}/category/{cat}" for cat in categories]
+    update_urls.extend(cat_urls)
+    logger.info(f"Added {len(cat_urls)} category pages")
+
+    logger.info(f"\nSending URL_UPDATED for {len(update_urls)} URLs...")
+    result = notify_urls(update_urls, "URL_UPDATED")
+    logger.info(f"URL_UPDATED: {result['success']} succeeded, {result['failed']} failed")
+
+    # 2. Notify deleted URLs (URL_DELETED)
+    delete_urls = []
+    if args.deleted:
+        delete_urls.extend([f"{SITE_URL}/article/{slug}" for slug in args.deleted])
+    if args.deleted_urls:
+        delete_urls.extend(args.deleted_urls)
+
+    if delete_urls:
+        logger.info(f"\nSending URL_DELETED for {len(delete_urls)} URLs...")
+        del_result = notify_urls(delete_urls, "URL_DELETED")
+        logger.info(f"URL_DELETED: {del_result['success']} succeeded, {del_result['failed']} failed")
+
+    # Summary
+    logger.info("\n=== Indexing Summary ===")
+    logger.info(f"Articles indexed: {len(slugs)}")
+    logger.info(f"Static pages: {len(STATIC_PAGES) + len(categories)}")
+    logger.info(f"Deleted URLs notified: {len(delete_urls)}")
     if result["errors"]:
         logger.info("Errors:")
-        for err in result["errors"]:
+        for err in result["errors"][:10]:
             logger.info(f"  - {err}")
 
 

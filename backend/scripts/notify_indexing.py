@@ -36,18 +36,22 @@ def _get_credentials():
         return None
 
 
-def notify_urls(urls: List[str]) -> dict:
+def notify_urls(urls: List[str], notification_type: str = "URL_UPDATED") -> dict:
     """
-    Send URL_UPDATED notifications to Google Indexing API.
+    Send notifications to Google Indexing API.
 
     Args:
-        urls: List of full URLs to notify (e.g. https://www.nexustopic.com/article/slug)
+        urls: List of full URLs to notify
+        notification_type: "URL_UPDATED" or "URL_DELETED"
 
     Returns:
         dict with 'success' count, 'failed' count, and 'errors' list
     """
     if not urls:
         return {"success": 0, "failed": 0, "errors": []}
+
+    if notification_type not in ("URL_UPDATED", "URL_DELETED"):
+        return {"success": 0, "failed": 0, "errors": [f"Invalid type: {notification_type}"]}
 
     credentials = _get_credentials()
     if credentials is None:
@@ -71,11 +75,11 @@ def notify_urls(urls: List[str]) -> dict:
 
     for url in batch:
         try:
-            payload = {"url": url, "type": "URL_UPDATED"}
+            payload = {"url": url, "type": notification_type}
             resp = requests.post(INDEXING_API_URL, json=payload, headers=headers, timeout=10)
             if resp.status_code == 200:
                 success += 1
-                logger.info(f"  Indexed: {url}")
+                logger.info(f"  {notification_type}: {url}")
             else:
                 failed += 1
                 msg = f"{url} → HTTP {resp.status_code}: {resp.text[:200]}"
