@@ -226,7 +226,7 @@ def extract_keywords(content: str, max_keywords: int = 10) -> list:
 
 
 VALID_CATEGORIES = [
-    'AI', 'BIZ & IT', 'CULTURE', 'ECONOMY', 'ENTERTAINMENT',
+    'IT & BIZ', 'CULTURE', 'ECONOMY', 'ENTERTAINMENT',
     'GAMING', 'HEALTH', 'POLICY', 'SCIENCE', 'SECURITY', 'TECH',
 ]
 
@@ -286,66 +286,57 @@ Rules:
 - Example: "The announcement was first reported by <a href="https://www.reuters.com/" target="_blank" rel="noopener noreferrer">Reuters</a>, indicating..."
 """
 
-    return f"""Write a comprehensive, trending news article analyzing: {topic}
+    return f"""Write an in-depth analytical article about this trending topic: {topic}
 
-CRITICAL REQUIREMENTS:
-- This is a TRENDING TOPIC right now - explain WHY it's trending and getting so much attention
-- Start by explaining what's happening and why people are searching for this topic TODAY
-- Include analysis of the trend, public reaction, and implications
-- Write as if you're covering breaking news or a hot trending story
+YOU ARE A HUMAN EDITOR writing for a tech-savvy audience. This is NOT a generic news summary — it is an ORIGINAL ANALYSIS piece that adds value beyond what readers can find on Reuters or BBC.
+
+CRITICAL WRITING RULES (anti-AI patterns):
+- NEVER start the article with "In a move that..." or "In an era where..." or "The tech world is buzzing..."
+- NEVER use phrases like "It remains to be seen", "Only time will tell", "In conclusion", "It's worth noting"
+- VARY sentence length dramatically: mix short punchy sentences (5-8 words) with longer analytical ones
+- Use FIRST PERSON sparingly but deliberately: "What strikes me about this story is..." or "The part that most analysts are overlooking is..."
+- Include at least ONE contrarian or unexpected angle that other outlets aren't covering
+- Add SPECIFIC numbers, dates, percentages, or dollar amounts wherever possible (research or estimate them)
+- Use rhetorical questions to engage: "But here's the real question:" or "So why does this matter?"
 
 Article Requirements:
 - Target audience: {target_audience}
-- Word count: MINIMUM {min_words} words, target {max_words} words. This is CRITICAL - articles under {min_words} words will be rejected. Write detailed, in-depth analysis to meet this requirement
-- Format: HTML with proper semantic tags (h2, h3, p, ul, ol, strong, em)
-- Style: News-style, authoritative, analytical
-- SEO: Include relevant keywords naturally throughout
-- Tone: Professional journalist covering trending topics
+- Word count: {min_words}-{max_words} words
+- Format: HTML with semantic tags (h2, h3, p, ul, ol, strong, em, blockquote)
+- Tone: Smart, opinionated, conversational — like a knowledgeable colleague explaining over coffee
+- SEO: Include relevant keywords naturally
 {internal_links_section}{external_links_section}{source_section}
-The article MUST include:
-1. **Opening Hook**: Explain what's happening right now and why everyone is talking about this
-2. **Background Context**: Provide essential background for readers who just heard about this
-3. **Trend Analysis**: Analyze WHY this is trending - what triggered the surge in interest?
-4. **Key Details**: Cover the most important facts, data, quotes, or developments
-5. **Public Reaction**: How are people responding? What are the discussions?
-6. **Implications**: What does this mean? Why should readers care?
-7. **Conclusion**: Summarize the trend and what to watch for next
+The article MUST include these elements (but DO NOT use these exact headings — create original, engaging section titles):
 
-Writing Style:
-- Write like you're a professional journalist covering today's trending stories
-- Be engaging and informative - explain complex topics clearly
-- Use present tense for current events ("is trending", "are discussing")
-- Include relevant context without overwhelming the reader
-- Make it feel timely and relevant to TODAY
+1. **A hook that makes readers stop scrolling** — Start with the most surprising or consequential detail, not a summary
+2. **The "So What?" context** — Why should a busy reader care about this RIGHT NOW? What changes for them?
+3. **Data & evidence** — Include at least 2-3 specific statistics, market figures, user numbers, or research findings. Use <strong> tags to highlight key numbers
+4. **An angle others are missing** — What are mainstream outlets NOT saying? What's the deeper pattern or second-order effect?
+5. **Stakeholder perspectives** — How are different groups (users, companies, regulators, critics) responding differently?
+6. **Your editorial take** — A clearly labeled opinion section (use <blockquote> for editorial commentary). What do YOU think this means for the industry/society?
+7. **What to watch next** — Specific upcoming dates, decisions, or milestones that will determine what happens next
 
-Format the output as HTML. Use <h2> for main sections, <h3> for subsections, <p> for paragraphs, <ul>/<ol> for lists.
-Do NOT include <html>, <head>, or <body> tags - just the article content.
+STYLE GUIDE:
+- Write like a columnist, not a wire service — personality and perspective matter
+- Break up walls of text with short paragraphs (2-3 sentences max)
+- Use <blockquote> for editorial asides: "Editor's take: This is bigger than it looks because..."
+- Embed data naturally: "That 47% year-over-year jump isn't just impressive — it's unprecedented in this sector"
+- Use analogies and comparisons to make complex topics accessible
+- End with a forward-looking statement that's specific, not vague
+
+Format: HTML only (h2, h3, p, ul, ol, strong, em, blockquote). No <html>/<head>/<body> tags.
 
 Also provide:
-- A compelling news headline (under 60 characters) that captures the trending aspect
-- A meta description (under 160 characters) that explains why this is trending
-- A CATEGORY from this exact list: AI, BIZ & IT, CULTURE, ECONOMY, ENTERTAINMENT, GAMING, HEALTH, POLICY, SCIENCE, SECURITY, TECH
-  Category guidelines:
-  - AI: Artificial intelligence, machine learning, LLMs, neural networks
-  - BIZ & IT: Business tech, SaaS, cloud, enterprise, startups
-  - CULTURE: Society, art, philosophy, social movements
-  - ECONOMY: Stocks, markets, finance, crypto, trade, tariffs, inflation
-  - ENTERTAINMENT: Movies, music, celebrities, TV shows, streaming, awards
-  - GAMING: Video games, esports, game industry
-  - HEALTH: Medical, healthcare, FDA, pharmaceuticals, diseases, wellness
-  - POLICY: Politics, legislation, elections, government, regulations
-  - SCIENCE: Research, space, physics, biology, climate, discoveries
-  - SECURITY: Cybersecurity, data breaches, hacking, privacy
-  - TECH: Hardware, gadgets, consumer technology, EVs, semiconductors
-  Choose the single best-fitting category based on the article's primary subject matter.
-  Distribute evenly — do not bias toward any particular category.
+- A headline (under 60 chars) that is specific and intriguing, NOT clickbait
+- A meta description (under 160 chars) that previews your unique angle
+- A CATEGORY from: IT & BIZ, CULTURE, ECONOMY, ENTERTAINMENT, GAMING, HEALTH, POLICY, SCIENCE, SECURITY, TECH
 
 Format your response as:
-TITLE: [Your headline here]
-META: [Your meta description here]
-CATEGORY: [One category from the list above]
+TITLE: [headline]
+META: [meta description]
+CATEGORY: [category]
 CONTENT:
-[Your HTML content here]
+[HTML content]
 """
 
 

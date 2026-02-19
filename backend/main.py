@@ -152,7 +152,7 @@ def load_config(config_path: str = 'config.yaml') -> Dict:
 # ---------------------------------------------------------------------------
 
 ALL_CATEGORIES = [
-    'AI', 'BIZ & IT', 'CULTURE', 'ECONOMY', 'ENTERTAINMENT',
+    'IT & BIZ', 'CULTURE', 'ECONOMY', 'ENTERTAINMENT',
     'GAMING', 'HEALTH', 'POLICY', 'SCIENCE', 'SECURITY', 'TECH',
 ]
 
@@ -193,12 +193,16 @@ _CATEGORY_KEYWORDS: Dict[str, List[str]] = {
         'executive order', 'immigration', 'diplomacy', 'nato', 'un ',
         'geopolitics', 'minister', 'parliament',
     ],
-    'AI': [
+    'IT & BIZ': [
         'artificial intelligence', ' ai ', 'openai', 'chatgpt', 'llm',
         'machine learning', 'deep learning', 'neural network', 'gpt',
         'gemini', 'claude', 'anthropic', 'copilot', 'generative ai',
         'diffusion', 'transformer', 'language model', 'ai model',
         'ai agent', 'agi',
+        'startup', 'saas', 'cloud', 'enterprise', 'acquisition', 'merger',
+        'funding', 'revenue', 'profit', 'ceo', 'layoff', 'hiring',
+        'aws', 'azure', 'devops', 'kubernetes', 'microservice',
+        'digital transformation', 'b2b', 'crm', 'erp', 'platform',
     ],
     'SECURITY': [
         'cybersecurity', 'hack', 'breach', 'ransomware', 'malware',
@@ -211,12 +215,6 @@ _CATEGORY_KEYWORDS: Dict[str, List[str]] = {
         'esports', 'twitch', 'gamer', 'fps', 'rpg', 'mmorpg', 'fortnite',
         'minecraft', 'valorant', 'league of legends', 'call of duty',
         'game pass', 'console', 'pc gaming',
-    ],
-    'BIZ & IT': [
-        'startup', 'saas', 'cloud', 'enterprise', 'acquisition', 'merger',
-        'funding', 'revenue', 'profit', 'ceo', 'layoff', 'hiring',
-        'aws', 'azure', 'devops', 'kubernetes', 'microservice',
-        'digital transformation', 'b2b', 'crm', 'erp', 'platform',
     ],
     'CULTURE': [
         'art', 'museum', 'exhibition', 'book', 'novel', 'author',

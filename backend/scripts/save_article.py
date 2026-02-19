@@ -17,11 +17,10 @@ import requests
 
 # Category-to-author mapping (must match frontend src/lib/authors.ts)
 CATEGORY_AUTHOR_MAP = {
-    'AI':            {'name': 'Alex Chen', 'bio': 'Covers AI, cybersecurity, and emerging technologies.'},
+    'IT & BIZ':      {'name': 'Alex Chen', 'bio': 'Covers AI, cybersecurity, and emerging technologies.'},
     'TECH':          {'name': 'Alex Chen', 'bio': 'Covers AI, cybersecurity, and emerging technologies.'},
     'SECURITY':      {'name': 'Alex Chen', 'bio': 'Covers AI, cybersecurity, and emerging technologies.'},
     'SCIENCE':       {'name': 'Alex Chen', 'bio': 'Covers AI, cybersecurity, and emerging technologies.'},
-    'BIZ & IT':      {'name': 'Sarah Mitchell', 'bio': 'Specializes in tech policy, digital economy, and business strategy.'},
     'POLICY':        {'name': 'Sarah Mitchell', 'bio': 'Specializes in tech policy, digital economy, and business strategy.'},
     'ECONOMY':       {'name': 'Sarah Mitchell', 'bio': 'Specializes in tech policy, digital economy, and business strategy.'},
     'HEALTH':        {'name': 'Sarah Mitchell', 'bio': 'Specializes in tech policy, digital economy, and business strategy.'},

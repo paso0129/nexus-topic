@@ -22,7 +22,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 VALID_CATEGORIES = [
-    'AI', 'BIZ & IT', 'CULTURE', 'ECONOMY', 'ENTERTAINMENT',
+    'IT & BIZ', 'CULTURE', 'ECONOMY', 'ENTERTAINMENT',
     'GAMING', 'HEALTH', 'POLICY', 'SCIENCE', 'SECURITY', 'TECH',
 ]
 
@@ -32,8 +32,8 @@ _gemini_cli_path = shutil.which('gemini')
 def _parse_category(text: str, fallback: str) -> str:
     """Parse and validate a category from LLM response."""
     category = text.strip().upper()
-    if 'BIZ' in category:
-        category = 'BIZ & IT'
+    if 'BIZ' in category or 'IT &' in category or category == 'AI':
+        category = 'IT & BIZ'
     if category in VALID_CATEGORIES:
         return category
     return fallback
