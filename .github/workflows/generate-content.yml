@@ -1,9 +1,9 @@
 name: Generate Daily Articles
 
 on:
-  schedule:
-    # 12시간마다 2개 생성 (하루 4개, 품질 중심)
-    - cron: '0 6,18 * * *'
+  # schedule:
+  #   # 12시간마다 2개 생성 (하루 4개, 품질 중심) - 일시 중단 (콘텐츠 품질 개선 기간)
+  #   - cron: '0 6,18 * * *'
   workflow_dispatch:
     inputs:
       articles:

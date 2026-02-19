@@ -230,6 +230,58 @@ VALID_CATEGORIES = [
     'GAMING', 'HEALTH', 'POLICY', 'SCIENCE', 'SECURITY', 'TECH',
 ]
 
+# Author personas — gender + age + writing voice
+AUTHOR_PERSONAS = {
+    'Alex Chen': {
+        'gender': 'male',
+        'voice': (
+            "You are Alex Chen, a 35-year-old senior tech editor. "
+            "You've spent a decade covering Silicon Valley and have strong opinions shaped by "
+            "years of watching hype cycles come and go. Your writing voice is direct and confident — "
+            "you don't hedge with 'perhaps' or 'maybe'. You use dry humor and occasionally reference "
+            "your own experience debugging code at 2am or sitting through countless product launches. "
+            "You write like a guy who's seen enough tech trends to be skeptical but still genuinely excited "
+            "when something real breaks through. Think: a smart friend who works in tech explaining things over beer."
+        ),
+    },
+    'Sarah Mitchell': {
+        'gender': 'female',
+        'voice': (
+            "You are Sarah Mitchell, a 38-year-old business and policy correspondent. "
+            "You came up through financial journalism and have a sharp eye for the money trail behind every story. "
+            "Your writing is precise and incisive — you cut through PR spin and find the real numbers. "
+            "You occasionally share brief personal observations from covering policy summits or interviewing executives. "
+            "You write with the authority of someone who's read every quarterly report and isn't impressed by buzzwords. "
+            "Think: a sharp colleague who always knows what the real story is behind the press release."
+        ),
+    },
+    'Maya Rodriguez': {
+        'gender': 'female',
+        'voice': (
+            "You are Maya Rodriguez, a 32-year-old culture and entertainment editor. "
+            "You grew up as a gamer and internet native, and your writing reflects genuine passion for the communities you cover. "
+            "Your voice is warm, witty, and culturally fluent — you make references that your audience actually gets. "
+            "You're not afraid to express genuine enthusiasm or disappointment. You write like someone who's actually "
+            "part of these communities, not an outsider looking in. "
+            "Think: your most culturally plugged-in friend who also happens to write really well."
+        ),
+    },
+}
+DEFAULT_PERSONA = AUTHOR_PERSONAS['Alex Chen']
+
+
+def _get_author_for_category(category: str) -> str:
+    """Return author name for a given category."""
+    cat_author = {
+        'IT & BIZ': 'Alex Chen', 'TECH': 'Alex Chen',
+        'SECURITY': 'Alex Chen', 'SCIENCE': 'Alex Chen',
+        'POLICY': 'Sarah Mitchell', 'ECONOMY': 'Sarah Mitchell',
+        'HEALTH': 'Sarah Mitchell',
+        'CULTURE': 'Maya Rodriguez', 'GAMING': 'Maya Rodriguez',
+        'ENTERTAINMENT': 'Maya Rodriguez',
+    }
+    return cat_author.get((category or '').upper(), 'Alex Chen')
+
 
 def _build_prompt(
     topic: str,
@@ -238,6 +290,7 @@ def _build_prompt(
     target_audience: str,
     existing_articles: list = None,
     source_url: str = None,
+    author_name: str = None,
 ) -> str:
     """Build the article generation prompt."""
 
@@ -286,18 +339,27 @@ Rules:
 - Example: "The announcement was first reported by <a href="https://www.reuters.com/" target="_blank" rel="noopener noreferrer">Reuters</a>, indicating..."
 """
 
+    # Author persona
+    persona = AUTHOR_PERSONAS.get(author_name, DEFAULT_PERSONA)
+    persona_voice = persona['voice']
+
     return f"""Write an in-depth analytical article about this trending topic: {topic}
 
-YOU ARE A HUMAN EDITOR writing for a tech-savvy audience. This is NOT a generic news summary — it is an ORIGINAL ANALYSIS piece that adds value beyond what readers can find on Reuters or BBC.
+AUTHOR IDENTITY (THIS IS WHO YOU ARE — stay in character throughout):
+{persona_voice}
 
-CRITICAL WRITING RULES (anti-AI patterns):
-- NEVER start the article with "In a move that..." or "In an era where..." or "The tech world is buzzing..."
-- NEVER use phrases like "It remains to be seen", "Only time will tell", "In conclusion", "It's worth noting"
-- VARY sentence length dramatically: mix short punchy sentences (5-8 words) with longer analytical ones
-- Use FIRST PERSON sparingly but deliberately: "What strikes me about this story is..." or "The part that most analysts are overlooking is..."
-- Include at least ONE contrarian or unexpected angle that other outlets aren't covering
-- Add SPECIFIC numbers, dates, percentages, or dollar amounts wherever possible (research or estimate them)
-- Use rhetorical questions to engage: "But here's the real question:" or "So why does this matter?"
+You are writing for a tech-savvy audience aged 25-45. This is NOT a generic news summary — it is an ORIGINAL ANALYSIS piece with YOUR personal perspective. Readers come to NexusTopic specifically for the human editorial voice, not wire-service regurgitation.
+
+CRITICAL WRITING RULES (anti-AI detection):
+- NEVER start with "In a move that..." / "In an era where..." / "The tech world is buzzing..."
+- NEVER use: "It remains to be seen", "Only time will tell", "In conclusion", "It's worth noting", "landscape", "paradigm shift", "game-changer", "dive into", "delve into", "tapestry", "multifaceted"
+- VARY sentence length dramatically: mix punchy (5-8 words) with longer analytical ones
+- Use FIRST PERSON naturally as your character would: share brief personal reactions, professional experiences, or opinions
+- Include at least ONE contrarian or unexpected angle
+- Add SPECIFIC numbers, dates, percentages, or dollar amounts wherever possible
+- Use rhetorical questions naturally: "But here's the real question:" or "So why does this matter?"
+- Write imperfect, human sentences — occasional fragments, em dashes, parenthetical asides are GOOD
+- Avoid perfectly parallel sentence structures that scream "AI generated"
 
 Article Requirements:
 - Target audience: {target_audience}
@@ -389,6 +451,7 @@ def generate_article(
     target_audience: str = "North American and European readers",
     existing_articles: list = None,
     source_url: str = None,
+    author_name: str = None,
     **kwargs,
 ) -> Dict:
     """
@@ -409,6 +472,7 @@ def generate_article(
         topic, effective_min, effective_max, target_audience,
         existing_articles=existing_articles,
         source_url=source_url,
+        author_name=author_name,
     )
 
     def _try_generate(provider_name, generate_fn, max_retries=2):
@@ -552,13 +616,15 @@ def generate_multiple_articles(
             continue
 
         quick_cat = topic_data.get('_quick_cat', '?')
-        logger.info(f"Generating article {len(articles)+1}/{articles_count} [{quick_cat}]: {topic}")
+        author_name = _get_author_for_category(quick_cat)
+        logger.info(f"Generating article {len(articles)+1}/{articles_count} [{quick_cat}] by {author_name}: {topic}")
 
         source_url = topic_data.get('url', '')
         article = generate_article(
             topic,
             existing_articles=existing_articles_for_links,
             source_url=source_url,
+            author_name=author_name,
             **kwargs,
         )
 
