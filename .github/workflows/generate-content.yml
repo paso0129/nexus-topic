@@ -55,6 +55,15 @@ jobs:
             -d '{}' || true
           echo "Frontend cache revalidated"
 
+      - name: Reindex to Google (Indexing API)
+        env:
+          GOOGLE_INDEXING_SA_KEY: ${{ secrets.GOOGLE_INDEXING_SA_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          cd backend
+          python -m scripts.batch_index
+
       - name: Summary
         if: always()
         run: |
