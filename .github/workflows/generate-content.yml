@@ -64,6 +64,13 @@ jobs:
           cd backend
           python -m scripts.batch_index
 
+      - name: Submit sitemaps to Search Console
+        env:
+          GOOGLE_INDEXING_SA_KEY: ${{ secrets.GOOGLE_INDEXING_SA_KEY }}
+        run: |
+          cd backend
+          python -m scripts.submit_sitemaps
+
       - name: Summary
         if: always()
         run: |
