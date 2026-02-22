@@ -393,8 +393,25 @@ STYLE GUIDE:
 Format: HTML only (h2, h3, p, ul, ol, strong, em, blockquote). No <html>/<head>/<body> tags.
 
 Also provide:
-- A headline (under 60 chars) that is specific and intriguing, NOT clickbait
-- A meta description (under 160 chars) that previews your unique angle
+- A HEADLINE (under 60 chars) that DEMANDS attention. This is the MOST IMPORTANT part for search CTR.
+  HEADLINE RULES:
+  * Use numbers when possible: "5 Reasons...", "The $2B Problem...", "3 Things..."
+  * Use power words: "Shocking", "Critical", "Secret", "Urgent", "Revealed", "Devastating"
+  * Use curiosity gaps: "Why X Is Actually Y", "The Real Reason Behind X", "What Nobody Tells You About X"
+  * Use question format when natural: "Is X the End of Y?", "Why Can't X Do Y?"
+  * Include specific details: names, numbers, dates — NOT vague generic titles
+  * NEVER use generic titles like "The Future of AI" or "Understanding Blockchain"
+  * Think: would YOU stop scrolling to click this? If not, rewrite it.
+  * Examples of GREAT titles: "Tesla's $500M Gamble Just Backfired", "Why Google Killed Its Own AI Project", "The 3 Lines of Code That Crashed AWS"
+  * Examples of BAD titles: "Exploring the Impact of Technology", "AI Continues to Evolve", "New Developments in Tech"
+
+- A META DESCRIPTION (under 155 chars) optimized for search CTR:
+  * Start with a hook — the most surprising fact or consequence
+  * Include a number or specific detail
+  * End with an implied benefit of reading: what will the reader learn or understand?
+  * Use active voice and urgency
+  * Example: "A single API change broke 40% of plugins overnight. Here's what went wrong and what developers need to do now."
+
 - A CATEGORY from: IT & BIZ, CULTURE, ECONOMY, ENTERTAINMENT, GAMING, HEALTH, POLICY, SCIENCE, SECURITY, TECH
 
 Format your response as:
