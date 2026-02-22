@@ -79,8 +79,15 @@ def fetch_rss_titles():
     import xml.etree.ElementTree as ET
     results = []
     feeds = [
+        # Tech
         ('https://techcrunch.com/feed/', 'techcrunch'),
         ('https://www.theverge.com/rss/index.xml', 'theverge'),
+        # Business & Finance
+        ('https://feeds.bloomberg.com/technology/news.rss', 'bloomberg'),
+        ('https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910', 'cnbc'),
+        ('https://news.google.com/rss/search?q=business+technology&hl=en-US&gl=US&ceid=US:en', 'google_news'),
+        ('https://finance.yahoo.com/news/rssindex', 'yahoo_finance'),
+        ('https://www.wired.com/feed/rss', 'wired'),
     ]
     for url, source in feeds:
         try:

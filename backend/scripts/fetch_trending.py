@@ -216,13 +216,20 @@ def fetch_producthunt(limit: int = 10) -> List[Dict]:
 
 
 def fetch_tech_rss(limit: int = 10) -> List[Dict]:
-    """Fetch latest articles from TechCrunch and The Verge via RSS."""
-    logger.info("Fetching TechCrunch + The Verge RSS")
+    """Fetch latest articles from tech and business RSS feeds."""
+    logger.info("Fetching RSS feeds (tech + business + finance)")
     trends_list = []
 
     feeds = [
+        # Tech
         ('https://techcrunch.com/feed/', 'techcrunch'),
         ('https://www.theverge.com/rss/index.xml', 'theverge'),
+        # Business & Finance
+        ('https://feeds.bloomberg.com/technology/news.rss', 'bloomberg'),
+        ('https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910', 'cnbc'),
+        ('https://news.google.com/rss/search?q=business+technology&hl=en-US&gl=US&ceid=US:en', 'google_news'),
+        ('https://finance.yahoo.com/news/rssindex', 'yahoo_finance'),
+        ('https://www.wired.com/feed/rss', 'wired'),
     ]
 
     for feed_url, source_name in feeds:
