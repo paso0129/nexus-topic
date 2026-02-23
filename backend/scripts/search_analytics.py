@@ -26,7 +26,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 SITE_URL = "https://www.nexustopic.com"
-SCOPES = ["https://www.googleapis.com/auth/webmasters.readonly"]
+# Domain property in Search Console
+SC_PROPERTY = "sc-domain:nexustopic.com"
+SCOPES = ["https://www.googleapis.com/auth/webmasters"]
 
 
 def query_search_analytics():
@@ -50,7 +52,7 @@ def query_search_analytics():
         "Authorization": f"Bearer {credentials.token}",
         "Content-Type": "application/json",
     }
-    encoded_site = quote(f"{SITE_URL}/", safe="")
+    encoded_site = quote(SC_PROPERTY, safe="")
     api_url = f"https://www.googleapis.com/webmasters/v3/sites/{encoded_site}/searchAnalytics/query"
 
     end_date = (datetime.utcnow() - timedelta(days=3)).strftime("%Y-%m-%d")
