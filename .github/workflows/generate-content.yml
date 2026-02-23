@@ -2,7 +2,11 @@ name: Generate Daily Articles
 
 on:
   schedule:
-    - cron: '0 6,18 * * *'  # 12시간마다 2개 생성 (하루 4개)
+    # 하루 4회, 불규칙 간격 (UTC) → 랜덤 딜레이 추가로 실제 시간 더 분산
+    - cron: '0 1 * * *'   # ~KST 10:00 + 랜덤 0~2h
+    - cron: '0 7 * * *'   # ~KST 16:00 + 랜덤 0~2h
+    - cron: '0 13 * * *'  # ~KST 22:00 + 랜덤 0~2h
+    - cron: '0 20 * * *'  # ~KST 05:00 + 랜덤 0~2h
   workflow_dispatch:
     inputs:
       articles:
@@ -16,6 +20,13 @@ jobs:
     timeout-minutes: 90
 
     steps:
+      - name: Random delay (0~120 min)
+        if: github.event_name == 'schedule'
+        run: |
+          DELAY=$((RANDOM % 120))
+          echo "Waiting ${DELAY} minutes before starting..."
+          sleep ${DELAY}m
+
       - uses: actions/checkout@v4
 
       - name: Set up Python
@@ -41,7 +52,7 @@ jobs:
           GOOGLE_INDEXING_SA_KEY: ${{ secrets.GOOGLE_INDEXING_SA_KEY }}
         run: |
           cd backend
-          python main.py --articles ${{ github.event.inputs.articles || '2' }}
+          python main.py --articles ${{ github.event.inputs.articles || '1' }}
 
       - name: Revalidate frontend cache
         env:
@@ -83,4 +94,4 @@ jobs:
         run: |
           echo "## Article Generation Summary" >> $GITHUB_STEP_SUMMARY
           echo "- Date: $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
-          echo "- Articles requested: ${{ github.event.inputs.articles || '2' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Articles requested: ${{ github.event.inputs.articles || '1' }}" >> $GITHUB_STEP_SUMMARY
