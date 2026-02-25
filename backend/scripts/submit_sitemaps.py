@@ -26,6 +26,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 SITE_URL = "https://www.nexustopic.com"
+# Search Console 도메인 속성 (sc-domain: 형식)
+SC_SITE = "sc-domain:nexustopic.com"
 SITEMAPS = [
     f"{SITE_URL}/sitemap.xml",
     f"{SITE_URL}/news-sitemap.xml",
@@ -52,7 +54,7 @@ def submit_sitemaps():
         credentials.refresh(Request())
 
         headers = {"Authorization": f"Bearer {credentials.token}"}
-        encoded_site = quote(f"{SITE_URL}/", safe="")
+        encoded_site = quote(SC_SITE, safe="")
 
         for sitemap_url in SITEMAPS:
             encoded_sitemap = quote(sitemap_url, safe="")
