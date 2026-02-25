@@ -49,8 +49,10 @@ def classify_article(article: Dict) -> str:
     fallback = article.get('topic', 'TECH')
 
     prompt = (
-        f"Classify this article into exactly ONE category from this list: "
-        f"{VALID_CATEGORIES}\n\n"
+        f"This article is currently classified as '{fallback}'. "
+        f"Only change the category if it is CLEARLY wrong. "
+        f"If the current category is reasonable, keep it.\n\n"
+        f"Valid categories: {VALID_CATEGORIES}\n\n"
         f"Title: {title}\n"
         f"Content preview: {content}\n\n"
         f"Reply with ONLY the category name, nothing else."
