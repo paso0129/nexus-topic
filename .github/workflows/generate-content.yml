@@ -3,10 +3,10 @@ name: Generate Daily Articles
 on:
   schedule:
     # 하루 4회, 미국 동부 시간 기준 낮 시간대 중심 (UTC)
-    - cron: '30 11 * * *'  # ~EST 06:30 + 랜덤 0~3h → 06:30~09:30
-    - cron: '0 15 * * *'   # ~EST 10:00 + 랜덤 0~3h → 10:00~13:00
-    - cron: '45 18 * * *'  # ~EST 13:45 + 랜덤 0~3h → 13:45~16:45
-    - cron: '15 23 * * *'  # ~EST 18:15 + 랜덤 0~3h → 18:15~21:15
+    - cron: '30 11 * * *'  # ~EST 06:30 + 랜덤 딜레이
+    - cron: '0 15 * * *'   # ~EST 10:00 + 랜덤 딜레이
+    - cron: '45 18 * * *'  # ~EST 13:45 + 랜덤 딜레이
+    - cron: '15 23 * * *'  # ~EST 18:15 + 랜덤 딜레이
   workflow_dispatch:
     inputs:
       articles:
@@ -20,10 +20,10 @@ jobs:
     timeout-minutes: 90
 
     steps:
-      - name: Random delay (0~180 min)
+      - name: Random delay (5~55 min)
         if: github.event_name == 'schedule'
         run: |
-          DELAY=$(( (RANDOM % 150) + 30 ))
+          DELAY=$(( (RANDOM % 50) + 5 ))
           echo "Waiting ${DELAY} minutes before starting..."
           sleep ${DELAY}m
 
@@ -42,6 +42,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Generate articles
+        id: generate
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -52,29 +53,43 @@ jobs:
           GOOGLE_INDEXING_SA_KEY: ${{ secrets.GOOGLE_INDEXING_SA_KEY }}
         run: |
           cd backend
-          python main.py --articles ${{ github.event.inputs.articles || '1' }}
+          python main.py --articles ${{ github.event.inputs.articles || '1' }} || true
 
       - name: Revalidate frontend cache
+        if: always()
         env:
           REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
         run: |
           echo "Revalidating frontend cache..."
-          curl -s -X POST "https://www.nexustopic.com/api/revalidate" \
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://www.nexustopic.com/api/revalidate" \
             -H "Authorization: Bearer $REVALIDATION_SECRET" \
             -H "Content-Type: application/json" \
-            -d '{}' || true
-          echo "Frontend cache revalidated"
+            -d '{}')
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "Response: $HTTP_CODE - $BODY"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::warning::Revalidation failed with HTTP $HTTP_CODE"
+          fi
+
+      - name: Wait for sitemap ISR refresh
+        if: always()
+        run: |
+          echo "Waiting 10s for ISR cache to propagate..."
+          sleep 10
 
       - name: Reindex to Google (Indexing API)
+        if: always()
         env:
           GOOGLE_INDEXING_SA_KEY: ${{ secrets.GOOGLE_INDEXING_SA_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           cd backend
-          python -m scripts.batch_index
+          python -m scripts.batch_index || true
 
       - name: Submit sitemaps to Search Console
+        if: always()
         env:
           GOOGLE_INDEXING_SA_KEY: ${{ secrets.GOOGLE_INDEXING_SA_KEY }}
         run: |
@@ -82,12 +97,13 @@ jobs:
           python -m scripts.submit_sitemaps
 
       - name: Notify IndexNow + WebSub
+        if: always()
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           cd backend
-          python -m scripts.notify_search_engines
+          python -m scripts.notify_search_engines || true
 
       - name: Summary
         if: always()
