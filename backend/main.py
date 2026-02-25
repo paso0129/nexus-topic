@@ -328,7 +328,8 @@ def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]
         })
 
     logger.info(f"Prepared {len(selected)} candidate topics (target: {target_count})")
-    logger.info(f"First 5 candidates: {[f'[{t['_quick_cat']}] {t['keyword'][:40]}' for t in selected[:5]]}")
+    preview = ", ".join(f"[{t.get('_quick_cat', '?')}] {t.get('keyword', '')[:40]}" for t in selected[:5])
+    logger.info(f"First 5 candidates: {preview}")
     return selected
 
 
