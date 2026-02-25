@@ -246,11 +246,27 @@ def _quick_classify(keyword: str) -> str:
     return best_cat
 
 
+def _get_recent_category_counts(days: int = 7) -> Dict[str, int]:
+    """Get category counts from recent articles to find underrepresented categories."""
+    counts = {cat: 0 for cat in ALL_CATEGORIES}
+    try:
+        if SUPABASE_AVAILABLE and is_supabase_enabled():
+            db = get_db_client()
+            articles = db.list_articles(limit=50, published_only=True)
+            for a in articles:
+                cat = a.get('topic', 'TECH')
+                if cat in counts:
+                    counts[cat] += 1
+            logger.info(f"Recent DB category counts: {dict(sorted(counts.items(), key=lambda x: x[1]))}")
+    except Exception as e:
+        logger.warning(f"Could not load recent categories: {e}")
+    return counts
+
+
 def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]:
     """
-    Select topics with category balance, providing extras for duplicate fallback.
-    Returns ~3x target_count topics, ordered: round-robin primary picks first,
-    then alternates per category, then remaining by score.
+    Select topics with category balance, prioritizing underrepresented categories.
+    Checks DB for recent category distribution and picks from the least represented first.
     """
     # Classify all topics
     buckets: Dict[str, List[Dict]] = defaultdict(list)
@@ -263,15 +279,31 @@ def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]
     for cat in ALL_CATEGORIES:
         logger.info(f"  {cat}: {len(buckets.get(cat, []))} topics")
 
+    # Get recent category counts from DB → prioritize underrepresented
+    recent_counts = _get_recent_category_counts()
+    # Sort categories by count (ascending) → least represented first
+    priority_order = sorted(ALL_CATEGORIES, key=lambda c: recent_counts.get(c, 0))
+    logger.info(f"Category priority (least → most): {[f'{c}({recent_counts[c]})' for c in priority_order]}")
+
     selected = []
     used = set()
 
-    # Round-robin: pick up to 3 topics per category (primary + alternates)
+    # Priority round: pick from least represented categories first
+    for cat in priority_order:
+        for topic in buckets.get(cat, []):
+            topic_id = id(topic)
+            if topic_id not in used:
+                selected.append(topic)
+                used.add(topic_id)
+                break  # one per category in priority round
+
+    # Round-robin: fill more from each category
     max_per_cat = 3
     for round_idx in range(max_per_cat):
-        for cat in ALL_CATEGORIES:
-            if round_idx < len(buckets[cat]):
-                topic = buckets[cat][round_idx]
+        for cat in priority_order:
+            items = buckets.get(cat, [])
+            if round_idx < len(items):
+                topic = items[round_idx]
                 topic_id = id(topic)
                 if topic_id not in used:
                     selected.append(topic)
@@ -284,7 +316,7 @@ def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]
             used.add(id(t))
 
     # Append generic category keywords as last resort
-    for cat in ALL_CATEGORIES:
+    for cat in priority_order:
         cat_label = cat.lower().replace(' & ', ' and ')
         selected.append({
             'keyword': f'latest {cat_label} trending news today',
@@ -296,6 +328,7 @@ def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]
         })
 
     logger.info(f"Prepared {len(selected)} candidate topics (target: {target_count})")
+    logger.info(f"First 5 candidates: {[f'[{t['_quick_cat']}] {t['keyword'][:40]}' for t in selected[:5]]}")
     return selected
 
 
@@ -401,12 +434,11 @@ Examples:
         logger.error(f"Error fetching trending topics: {e}")
         sys.exit(1)
 
-    # STEP 1.5: Category-balanced topic selection (round-robin)
-    if args.articles >= 5:
-        logger.info("\n" + "=" * 80)
-        logger.info("STEP 1.5: Category-Balanced Topic Selection")
-        logger.info("=" * 80)
-        topics = _select_balanced_topics(topics, args.articles)
+    # STEP 1.5: Category-balanced topic selection
+    logger.info("\n" + "=" * 80)
+    logger.info("STEP 1.5: Category-Balanced Topic Selection")
+    logger.info("=" * 80)
+    topics = _select_balanced_topics(topics, args.articles)
 
     # STEP 2: Generate Articles
     logger.info("\n" + "=" * 80)

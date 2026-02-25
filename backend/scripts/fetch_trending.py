@@ -224,12 +224,20 @@ def fetch_tech_rss(limit: int = 10) -> List[Dict]:
         # Tech
         ('https://techcrunch.com/feed/', 'techcrunch'),
         ('https://www.theverge.com/rss/index.xml', 'theverge'),
+        ('https://www.wired.com/feed/rss', 'wired'),
         # Business & Finance
         ('https://feeds.bloomberg.com/technology/news.rss', 'bloomberg'),
         ('https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910', 'cnbc'),
-        ('https://news.google.com/rss/search?q=business+technology&hl=en-US&gl=US&ceid=US:en', 'google_news'),
         ('https://finance.yahoo.com/news/rssindex', 'yahoo_finance'),
-        ('https://www.wired.com/feed/rss', 'wired'),
+        # Science & Health
+        ('https://rss.nytimes.com/services/xml/rss/nyt/Science.xml', 'nytimes_science'),
+        ('https://www.newscientist.com/section/news/feed/', 'newscientist'),
+        # Culture & Entertainment
+        ('https://news.google.com/rss/search?q=culture+trends&hl=en-US&gl=US&ceid=US:en', 'google_news_culture'),
+        ('https://news.google.com/rss/search?q=entertainment+news&hl=en-US&gl=US&ceid=US:en', 'google_news_entertainment'),
+        # Economy & Policy
+        ('https://news.google.com/rss/search?q=economy+market+news&hl=en-US&gl=US&ceid=US:en', 'google_news_economy'),
+        ('https://news.google.com/rss/search?q=policy+regulation+government&hl=en-US&gl=US&ceid=US:en', 'google_news_policy'),
     ]
 
     for feed_url, source_name in feeds:

@@ -29,7 +29,7 @@ CREATE TABLE trending_sources (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   article_id UUID REFERENCES articles(id) ON DELETE CASCADE,
   keyword TEXT NOT NULL,
-  source TEXT NOT NULL CHECK (source IN ('hackernews', 'reddit', 'google_trends', 'devto', 'producthunt', 'techcrunch', 'theverge', 'newsapi', 'newsapi_technology', 'newsapi_entertainment', 'newsapi_business', 'newsapi_health', 'newsapi_science', 'newsapi_general', 'category_fill', 'bloomberg', 'cnbc', 'google_news', 'yahoo_finance', 'wired')),
+  source TEXT NOT NULL CHECK (source IN ('hackernews', 'reddit', 'google_trends', 'devto', 'producthunt', 'techcrunch', 'theverge', 'newsapi', 'newsapi_technology', 'newsapi_entertainment', 'newsapi_business', 'newsapi_health', 'newsapi_science', 'newsapi_general', 'category_fill', 'bloomberg', 'cnbc', 'google_news', 'yahoo_finance', 'wired', 'nytimes_science', 'newscientist', 'google_news_culture', 'google_news_entertainment', 'google_news_economy', 'google_news_policy')),
   score INTEGER DEFAULT 0,
   region TEXT DEFAULT 'US',
   url TEXT,
