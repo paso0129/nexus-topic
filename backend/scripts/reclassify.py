@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 try:
-    import google.generativeai as genai
+    from google import genai
 except ImportError:
     genai = None
 
@@ -59,9 +59,11 @@ def classify_article(article: Dict) -> str:
     # Try Gemini API (fast)
     if os.getenv('GOOGLE_API_KEY') and genai:
         try:
-            genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
-            model = genai.GenerativeModel('gemini-3-flash-preview')
-            resp = model.generate_content(prompt)
+            client = genai.Client(api_key=os.getenv('GOOGLE_API_KEY'))
+            resp = client.models.generate_content(
+                model='gemini-3-flash-preview',
+                contents=prompt,
+            )
             result = _parse_category(resp.text, fallback)
             if result != fallback:
                 return result

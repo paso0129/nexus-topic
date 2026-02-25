@@ -20,16 +20,9 @@ from typing import Dict, List, Optional
 import requests
 
 try:
-    import google.generativeai as genai
+    from google import genai
 except ImportError:
     genai = None
-
-try:
-    from google import genai as genai_new
-    from google.genai import types as genai_types
-except ImportError:
-    genai_new = None
-    genai_types = None
 
 try:
     from PIL import Image
@@ -139,7 +132,7 @@ def generate_gemini_image(article: Dict) -> Optional[str]:
         logger.info("  GOOGLE_API_KEY not set, skipping Gemini image generation")
         return None
 
-    if not genai_new or not genai_types:
+    if not genai:
         logger.info("  google-genai SDK not installed, skipping Gemini image generation")
         return None
 
@@ -150,11 +143,11 @@ def generate_gemini_image(article: Dict) -> Optional[str]:
     prompt = _build_image_prompt(article)
 
     try:
-        client = genai_new.Client(api_key=api_key)
+        client = genai.Client(api_key=api_key)
         response = client.models.generate_content(
             model="gemini-2.5-flash-image",
             contents=prompt,
-            config=genai_types.GenerateContentConfig(
+            config=genai.types.GenerateContentConfig(
                 response_modalities=["IMAGE", "TEXT"],
             ),
         )
@@ -215,9 +208,11 @@ def _build_search_query_with_ai(article: Dict) -> Optional[str]:
     # Try Gemini API
     if os.getenv('GOOGLE_API_KEY') and genai:
         try:
-            genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
-            model = genai.GenerativeModel('gemini-3-flash-preview')
-            resp = model.generate_content(prompt)
+            client = genai.Client(api_key=os.getenv('GOOGLE_API_KEY'))
+            resp = client.models.generate_content(
+                model='gemini-3-flash-preview',
+                contents=prompt,
+            )
             query = resp.text.strip().strip('"').strip("'")
             logger.info(f"  AI query: '{query}'")
             return query

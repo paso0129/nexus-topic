@@ -3,7 +3,7 @@ Content Generator using Gemini
 
 Generates SEO-optimized blog articles using:
 - Primary: Gemini 2.5 Pro via CLI (Google account auth, no API quota)
-- Fallback: Gemini 3 Flash Preview via API (free tier)
+- Fallback: Gemini 3.1 Pro Preview via API (free tier)
 """
 
 import logging
@@ -17,9 +17,11 @@ from typing import Dict, Optional
 from datetime import datetime
 
 try:
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types as genai_types
 except ImportError:
     genai = None
+    genai_types = None
 
 from dotenv import load_dotenv
 
@@ -74,21 +76,25 @@ def _generate_with_gemini_cli(prompt: str, model: str = "gemini-2.5-pro") -> str
     return '\n'.join(content_lines)
 
 
-def _generate_with_gemini_api(prompt: str, model_name: str = "gemini-3.1-pro-preview") -> str:
-    """Generate content using Google Gemini API (free tier)."""
+def _get_genai_client():
+    """Get or create a Gemini API client."""
     api_key = os.getenv('GOOGLE_API_KEY')
     if not api_key or not genai:
         raise RuntimeError("Gemini API not available")
+    return genai.Client(api_key=api_key)
 
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(model_name)
+
+def _generate_with_gemini_api(prompt: str, model_name: str = "gemini-3.1-pro-preview") -> str:
+    """Generate content using Google Gemini API (free tier)."""
+    client = _get_genai_client()
     logger.info(f"Calling Gemini API ({model_name})...")
-    response = model.generate_content(
-        prompt,
-        generation_config=genai.types.GenerationConfig(
+    response = client.models.generate_content(
+        model=model_name,
+        contents=prompt,
+        config=genai_types.GenerateContentConfig(
             temperature=0.7,
             max_output_tokens=4096,
-        )
+        ),
     )
     return response.text
 
