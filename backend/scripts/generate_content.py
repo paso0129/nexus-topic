@@ -74,7 +74,7 @@ def _generate_with_gemini_cli(prompt: str, model: str = "gemini-2.5-pro") -> str
     return '\n'.join(content_lines)
 
 
-def _generate_with_gemini_api(prompt: str, model_name: str = "gemini-3-flash-preview") -> str:
+def _generate_with_gemini_api(prompt: str, model_name: str = "gemini-3.1-pro-preview") -> str:
     """Generate content using Google Gemini API (free tier)."""
     api_key = os.getenv('GOOGLE_API_KEY')
     if not api_key or not genai:
