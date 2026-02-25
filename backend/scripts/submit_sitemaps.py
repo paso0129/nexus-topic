@@ -94,7 +94,7 @@ def _verify(headers, encoded_site):
         warnings_count = sm.get("warnings", 0)
         errors_count = sm.get("errors", 0)
 
-        status = "✅" if errors_count == 0 else "❌"
+        status = "❌" if errors_count > 0 else "⚠️" if warnings_count > 0 else "✅"
         logger.info(
             f"{status} {path} — "
             f"submitted: {submitted}, indexed: {indexed}, "
