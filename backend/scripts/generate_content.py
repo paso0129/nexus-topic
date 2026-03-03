@@ -123,11 +123,13 @@ def _is_similar(text_a: str, text_b: str, threshold: float = 0.35) -> bool:
 
 
 def _is_semantic_duplicate(new_title: str, existing_titles: set) -> bool:
-    """Use LLM to check if a generated article title covers the same topic as any existing article."""
+    """Use LLM to check if a generated article title covers the EXACT same specific story as any existing article."""
     try:
         titles_list = '\n'.join(list(existing_titles)[:50])
         prompt = (
-            f'Does this new article title cover the SAME topic as any existing article?\n\n'
+            f'Does this new article title cover the EXACT SAME specific story, event, or announcement as any existing article?\n\n'
+            f'IMPORTANT: Two articles about the same broad category (e.g., both about "stock market" or "cryptocurrency") '
+            f'are NOT duplicates. They must be about the SAME specific event, company announcement, or news story.\n\n'
             f'New title: {new_title}\n\n'
             f'Existing titles:\n{titles_list}\n\n'
             f'Reply ONLY "YES" or "NO".'
