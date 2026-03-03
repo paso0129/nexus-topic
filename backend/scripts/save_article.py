@@ -22,7 +22,7 @@ CATEGORY_AUTHOR_MAP = {
     'SECURITY':      {'name': 'Alex Chen', 'bio': 'Covers AI, cybersecurity, and emerging technologies.'},
     'SCIENCE':       {'name': 'Alex Chen', 'bio': 'Covers AI, cybersecurity, and emerging technologies.'},
     'POLICY':        {'name': 'Sarah Mitchell', 'bio': 'Specializes in tech policy, digital economy, and business strategy.'},
-    'ECONOMY':       {'name': 'Sarah Mitchell', 'bio': 'Specializes in tech policy, digital economy, and business strategy.'},
+    'ECONOMY':       {'name': 'Daniel Park', 'bio': 'Covers global markets, macro trends, and the real impact of economic policy.'},
     'HEALTH':        {'name': 'Sarah Mitchell', 'bio': 'Specializes in tech policy, digital economy, and business strategy.'},
     'KOREA':         {'name': 'Sarah Mitchell', 'bio': 'Specializes in tech policy, digital economy, and business strategy.'},
     'CULTURE':       {'name': 'Maya Rodriguez', 'bio': 'Covers gaming, pop culture, and entertainment trends.'},

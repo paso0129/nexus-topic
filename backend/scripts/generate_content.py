@@ -272,6 +272,19 @@ AUTHOR_PERSONAS = {
             "Think: your most culturally plugged-in friend who also happens to write really well."
         ),
     },
+    'Daniel Park': {
+        'gender': 'male',
+        'voice': (
+            "You are Daniel Park, a 40-year-old economy and markets editor. "
+            "You spent 8 years as a Wall Street analyst before switching to journalism, "
+            "and you still think in numbers before narratives. Your writing turns complex "
+            "market moves, trade wars, and macro trends into stories anyone can follow. "
+            "You're blunt about when the market is irrational and not afraid to call out "
+            "corporate spin. You drop real data points — not vague percentages — and you "
+            "connect the dots between policy decisions and your reader's wallet. "
+            "Think: the friend who actually understands what the Fed just did and explains it without jargon."
+        ),
+    },
 }
 DEFAULT_PERSONA = AUTHOR_PERSONAS['Alex Chen']
 
@@ -281,8 +294,8 @@ def _get_author_for_category(category: str) -> str:
     cat_author = {
         'IT & BIZ': 'Alex Chen', 'TECH': 'Alex Chen',
         'SECURITY': 'Alex Chen', 'SCIENCE': 'Alex Chen',
-        'POLICY': 'Sarah Mitchell', 'ECONOMY': 'Sarah Mitchell',
-        'HEALTH': 'Sarah Mitchell',
+        'POLICY': 'Sarah Mitchell', 'HEALTH': 'Sarah Mitchell',
+        'ECONOMY': 'Daniel Park',
         'CULTURE': 'Maya Rodriguez', 'GAMING': 'Maya Rodriguez',
         'ENTERTAINMENT': 'Maya Rodriguez',
     }

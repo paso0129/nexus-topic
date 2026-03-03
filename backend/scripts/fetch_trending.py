@@ -450,6 +450,26 @@ def get_all_trending_topics(
         if not is_dup:
             unique_trends.append(trend)
 
+    # Filter out war/conflict/military topics (AdSense policy compliance)
+    EXCLUDED_KEYWORDS = [
+        'war ', ' war', 'warfare', 'invasion', 'invade',
+        'bombing', 'airstrike', 'air strike', 'missile strike',
+        'death toll', 'genocide', 'massacre', 'casualties',
+        'military attack', 'military offensive', 'armed conflict',
+        'troop', 'troops deploy', 'frontline', 'battlefield',
+        'ceasefire', 'occupation', 'siege',
+        'ukraine war', 'russia ukraine', 'gaza', 'hamas', 'hezbollah',
+        'killed in', 'civilian deaths', 'war crimes',
+    ]
+    before_filter = len(unique_trends)
+    unique_trends = [
+        t for t in unique_trends
+        if not any(excl in f' {t["keyword"].lower()} ' for excl in EXCLUDED_KEYWORDS)
+    ]
+    excluded_count = before_filter - len(unique_trends)
+    if excluded_count > 0:
+        logger.info(f"Excluded {excluded_count} war/conflict-related topics")
+
     logger.info(f"Total trending topics collected: {len(unique_trends)} (from {len(all_trends)} raw)")
     logger.info(f"Sources: HackerNews={len(hn_trends)}, Google={len(google_trends)}, "
                 f"Dev.to={len(devto_trends)}, ProductHunt={len(ph_trends)}, "

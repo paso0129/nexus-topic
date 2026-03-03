@@ -172,6 +172,10 @@ _CATEGORY_KEYWORDS: Dict[str, List[str]] = {
         'economy', 'debt', 'bond', 'commodity', 'oil price', 'gold price',
         'hedge fund', 'venture capital', 'nasdaq', 'dow jones', 's&p',
         'central bank', 'monetary', 'fiscal',
+        'trump tariff', 'trade war', 'elon musk', 'treasury', 'yield',
+        'dollar', 'won', 'yen', 'euro', 'exchange rate', 'rally', 'crash',
+        'bull', 'bear', 'investor', 'investment', 'dividend', 'etf',
+        'futures', 'options', 'margin', 'short selling', 'buyback',
     ],
     'SCIENCE': [
         'research', 'discovery', 'space', 'nasa', 'physics', 'biology',
@@ -315,6 +319,48 @@ def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]
             selected.append(t)
             used.add(id(t))
 
+    # ECONOMY guarantee: ensure at least 1 ECONOMY topic in the first target_count slots
+    GUARANTEED_CATEGORIES = ['ECONOMY']
+    import random as _rand
+    _economy_fallbacks = [
+        'stock market today nasdaq sp500 performance analysis',
+        'federal reserve interest rate decision economic impact',
+        'global trade tariffs supply chain disruption',
+        'cryptocurrency bitcoin ethereum market trends',
+        'inflation consumer prices economic outlook',
+        'big tech earnings quarterly results revenue',
+        'venture capital startup funding rounds trends',
+        'oil prices energy markets commodities update',
+        'housing market mortgage rates real estate trends',
+        'central bank monetary policy economic forecast',
+        'ipo market new listings wall street analysis',
+        'exchange rate dollar euro yen forex trends',
+    ]
+    for gcat in GUARANTEED_CATEGORIES:
+        has_gcat = any(t.get('_quick_cat') == gcat for t in selected[:target_count])
+        if not has_gcat:
+            # Try to find an ECONOMY topic from buckets
+            eco_topic = None
+            for t in buckets.get(gcat, []):
+                if id(t) not in used:
+                    eco_topic = t
+                    break
+            if eco_topic is None:
+                # Inject a specific ECONOMY topic (randomized to avoid duplicates)
+                today = datetime.now().strftime('%B %Y')
+                fallback_kw = _rand.choice(_economy_fallbacks)
+                eco_topic = {
+                    'keyword': f'{fallback_kw} {today}',
+                    'source': 'economy_guarantee',
+                    'score': 50,
+                    'region': 'global',
+                    'url': '',
+                    '_quick_cat': gcat,
+                }
+            selected.insert(0, eco_topic)
+            used.add(id(eco_topic))
+            logger.info(f"Guaranteed {gcat} topic inserted: {eco_topic.get('keyword', '')[:50]}")
+
     # Append generic category keywords as last resort
     for cat in priority_order:
         cat_label = cat.lower().replace(' & ', ' and ')
@@ -440,6 +486,21 @@ Examples:
     logger.info("STEP 1.5: Category-Balanced Topic Selection")
     logger.info("=" * 80)
     topics = _select_balanced_topics(topics, args.articles)
+
+    # Filter out war/conflict topics (AdSense policy + editorial policy)
+    _WAR_KEYWORDS = [
+        'war', 'warfare', 'invasion', 'bombing', 'airstrike', 'missile strike',
+        'death toll', 'genocide', 'massacre', 'casualties', 'armed conflict',
+        'military attack', 'military offensive', 'ceasefire', 'occupation',
+    ]
+    filtered_topics = []
+    for t in topics:
+        kw_lower = t.get('keyword', '').lower()
+        if any(wk in kw_lower for wk in _WAR_KEYWORDS):
+            logger.info(f"Excluding war-related topic: {t.get('keyword', '')[:60]}")
+            continue
+        filtered_topics.append(t)
+    topics = filtered_topics
 
     # STEP 2: Generate Articles
     logger.info("\n" + "=" * 80)
