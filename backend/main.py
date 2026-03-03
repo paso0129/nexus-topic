@@ -319,8 +319,7 @@ def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]
             selected.append(t)
             used.add(id(t))
 
-    # ECONOMY guarantee: ensure at least 1 ECONOMY topic in the first target_count slots
-    GUARANTEED_CATEGORIES = ['ECONOMY']
+    # ECONOMY guarantee: ALWAYS place an ECONOMY topic first
     import random as _rand
     _economy_fallbacks = [
         'stock market today nasdaq sp500 performance analysis',
@@ -336,30 +335,28 @@ def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]
         'ipo market new listings wall street analysis',
         'exchange rate dollar euro yen forex trends',
     ]
-    for gcat in GUARANTEED_CATEGORIES:
-        has_gcat = any(t.get('_quick_cat') == gcat for t in selected[:target_count])
-        if not has_gcat:
-            # Try to find an ECONOMY topic from buckets
-            eco_topic = None
-            for t in buckets.get(gcat, []):
-                if id(t) not in used:
-                    eco_topic = t
-                    break
-            if eco_topic is None:
-                # Inject a specific ECONOMY topic (randomized to avoid duplicates)
-                today = datetime.now().strftime('%B %Y')
-                fallback_kw = _rand.choice(_economy_fallbacks)
-                eco_topic = {
-                    'keyword': f'{fallback_kw} {today}',
-                    'source': 'economy_guarantee',
-                    'score': 50,
-                    'region': 'global',
-                    'url': '',
-                    '_quick_cat': gcat,
-                }
-            selected.insert(0, eco_topic)
-            used.add(id(eco_topic))
-            logger.info(f"Guaranteed {gcat} topic inserted: {eco_topic.get('keyword', '')[:50]}")
+    # Always insert an ECONOMY topic at position 0 (regardless of existing topics)
+    eco_topic = None
+    eco_bucket = buckets.get('ECONOMY', [])
+    _rand.shuffle(eco_bucket)  # randomize to avoid always picking the same one
+    for t in eco_bucket:
+        if id(t) not in used:
+            eco_topic = t
+            break
+    if eco_topic is None:
+        today = datetime.now().strftime('%B %Y')
+        fallback_kw = _rand.choice(_economy_fallbacks)
+        eco_topic = {
+            'keyword': f'{fallback_kw} {today}',
+            'source': 'economy_guarantee',
+            'score': 50,
+            'region': 'global',
+            'url': '',
+            '_quick_cat': 'ECONOMY',
+        }
+    selected.insert(0, eco_topic)
+    used.add(id(eco_topic))
+    logger.info(f"ECONOMY topic guaranteed at position 0: {eco_topic.get('keyword', '')[:60]}")
 
     # Append generic category keywords as last resort
     for cat in priority_order:
