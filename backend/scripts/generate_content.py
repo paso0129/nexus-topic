@@ -2,8 +2,8 @@
 Content Generator using Gemini
 
 Generates SEO-optimized blog articles using:
-- Primary: Gemini 2.5 Pro via CLI (Google account auth, no API quota)
-- Fallback: Gemini 3.1 Pro Preview via API (free tier)
+- Primary: Gemini 3 Pro Preview via CLI (Google account auth, no API quota)
+- Fallback: Gemini 2.5 Pro via API (free tier)
 """
 
 import logging
@@ -53,7 +53,7 @@ _STOPWORDS = frozenset([
 _gemini_cli_path = shutil.which('gemini')
 
 
-def _generate_with_gemini_cli(prompt: str, model: str = "gemini-2.5-pro") -> str:
+def _generate_with_gemini_cli(prompt: str, model: str = "gemini-3-pro-preview") -> str:
     """Generate content using Gemini CLI (uses Google account auth, no API quota)."""
     if not _gemini_cli_path:
         raise RuntimeError("Gemini CLI not installed")
@@ -84,7 +84,7 @@ def _get_genai_client():
     return genai.Client(api_key=api_key)
 
 
-def _generate_with_gemini_api(prompt: str, model_name: str = "gemini-3.1-pro-preview") -> str:
+def _generate_with_gemini_api(prompt: str, model_name: str = "gemini-2.5-pro") -> str:
     """Generate content using Google Gemini API (free tier)."""
     client = _get_genai_client()
     logger.info(f"Calling Gemini API ({model_name})...")
@@ -496,8 +496,8 @@ def generate_article(
 ) -> Dict:
     """
     Generate a complete SEO-optimized article.
-    Primary: Gemini 2.5 Pro via CLI
-    Fallback: Gemini API (gemini-3-flash-preview)
+    Primary: Gemini 3 Pro Preview via CLI
+    Fallback: Gemini API (gemini-2.5-pro)
     """
     # Randomize word count target within the given range for natural variation
     target = random.randint(min_words, max_words)
@@ -532,7 +532,7 @@ def generate_article(
                 return article
         return None
 
-    # Primary: Gemini CLI (gemini-2.5-pro, Google account auth)
+    # Primary: Gemini CLI (gemini-3-pro-preview, Google account auth)
     if _gemini_cli_path:
         try:
             article = _try_generate('Gemini CLI', lambda: _generate_with_gemini_cli(prompt))
@@ -542,7 +542,7 @@ def generate_article(
         except Exception as e:
             logger.warning(f"Gemini CLI failed: {e}")
 
-    # Fallback: Gemini API (gemini-3-flash-preview)
+    # Fallback: Gemini API (gemini-2.5-pro)
     if os.getenv('GOOGLE_API_KEY') and genai:
         for attempt in range(3):
             try:
