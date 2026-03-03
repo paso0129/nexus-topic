@@ -2,7 +2,7 @@
 Content Generator using Gemini
 
 Generates SEO-optimized blog articles using:
-- Primary: Gemini 3 Pro Preview via CLI (Google account auth, no API quota)
+- Primary: Gemini 3.1 Pro Preview via CLI (Google account auth, no API quota)
 - Fallback: Gemini 2.5 Pro via API (free tier)
 """
 
@@ -53,7 +53,7 @@ _STOPWORDS = frozenset([
 _gemini_cli_path = shutil.which('gemini')
 
 
-def _generate_with_gemini_cli(prompt: str, model: str = "gemini-3-pro-preview") -> str:
+def _generate_with_gemini_cli(prompt: str, model: str = "gemini-3.1-pro-preview") -> str:
     """Generate content using Gemini CLI (uses Google account auth, no API quota)."""
     if not _gemini_cli_path:
         raise RuntimeError("Gemini CLI not installed")
@@ -496,7 +496,7 @@ def generate_article(
 ) -> Dict:
     """
     Generate a complete SEO-optimized article.
-    Primary: Gemini 3 Pro Preview via CLI
+    Primary: Gemini 3.1 Pro Preview via CLI
     Fallback: Gemini API (gemini-2.5-pro)
     """
     # Randomize word count target within the given range for natural variation
@@ -532,7 +532,7 @@ def generate_article(
                 return article
         return None
 
-    # Primary: Gemini CLI (gemini-3-pro-preview, Google account auth)
+    # Primary: Gemini CLI (gemini-3.1-pro-preview, Google account auth)
     if _gemini_cli_path:
         try:
             article = _try_generate('Gemini CLI', lambda: _generate_with_gemini_cli(prompt))
