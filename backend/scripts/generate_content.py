@@ -217,15 +217,42 @@ STOP_WORDS = {
 }
 
 
+def _validate_internal_links(content: str, valid_slugs: set) -> str:
+    """Remove internal links whose slugs don't exist in the database."""
+    def replace_link(match):
+        slug = match.group(1)
+        anchor_text = match.group(2)
+        if slug in valid_slugs:
+            return match.group(0)  # keep valid link
+        logger.warning(f"Removing invalid internal link: /article/{slug}")
+        return anchor_text  # replace with just the anchor text
+
+    return re.sub(
+        r'<a\s+href="/article/([^"]+)"[^>]*>(.*?)</a>',
+        replace_link,
+        content,
+    )
+
+
 def extract_keywords(content: str, max_keywords: int = 10) -> list:
-    """Extract meaningful keywords from content, filtering stop words."""
+    """Extract meaningful keywords from content, with 3x weight for H2/H3 headings."""
+    # Extract heading text with 3x weight
+    heading_texts = re.findall(r'<h[23][^>]*>(.*?)</h[23]>', content, re.IGNORECASE)
+    heading_clean = ' '.join(re.sub(r'<[^>]+>', '', h) for h in heading_texts)
+    heading_words = re.findall(r'\b[a-z]{4,}\b', heading_clean.lower())
+
+    # Extract body text
     clean_text = re.sub(r'<[^>]+>', '', content)
-    words = re.findall(r'\b[a-z]{4,}\b', clean_text.lower())
+    body_words = re.findall(r'\b[a-z]{4,}\b', clean_text.lower())
 
     word_freq = {}
-    for word in words:
+    for word in body_words:
         if word not in STOP_WORDS:
             word_freq[word] = word_freq.get(word, 0) + 1
+    # Apply 3x weight for heading words
+    for word in heading_words:
+        if word not in STOP_WORDS:
+            word_freq[word] = word_freq.get(word, 0) + 3
 
     sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
     keywords = [word for word, freq in sorted_words[:max_keywords]]
@@ -312,21 +339,26 @@ def _build_prompt(
     existing_articles: list = None,
     source_url: str = None,
     author_name: str = None,
+    search_context: dict = None,
 ) -> str:
     """Build the article generation prompt."""
 
-    # Build internal links section (minimal - only when highly relevant)
+    # Build internal links section
     internal_links_section = ""
     if existing_articles:
         links_list = "\n".join(
-            f"- \"{a['title']}\" -> /article/{a['slug']}"
+            f"- \"{a['title']}\" [{a.get('topic', '')}] -> /article/{a['slug']}"
             for a in existing_articles[:30]
         )
         internal_links_section = f"""
-INTERNAL LINKING (LOW PRIORITY - use sparingly):
-Below are existing articles on our site. Only link to one if it is DIRECTLY and strongly related to the current topic.
-Use 0-1 internal links at most. Prefer external links over internal links.
-Use HTML anchor tags like: <a href="/article/SLUG">Article Title</a>
+INTERNAL LINKING (IMPORTANT for SEO):
+Below are existing articles on our site with their categories. Link to 2-3 articles that are RELATED to the current topic.
+Use HTML anchor tags: <a href="/article/SLUG">descriptive anchor text</a>
+Rules:
+- Choose articles from the same or related categories when possible
+- Use descriptive anchor text (not "click here" or the full title) — use natural phrases
+- Spread links throughout the article body, not clustered together
+- ONLY use slugs from the list below — do NOT invent slugs
 
 Existing articles:
 {links_list}
@@ -360,6 +392,33 @@ Rules:
 - Example: "The announcement was first reported by <a href="https://www.reuters.com/" target="_blank" rel="noopener noreferrer">Reuters</a>, indicating..."
 """
 
+    # Build real search data section
+    search_data_section = ""
+    if search_context:
+        parts = []
+        ac = search_context.get('autocomplete', [])
+        if ac:
+            ac_lines = "\n".join(f'  - "{q}"' for q in ac[:15])
+            parts.append(f"Google Autocomplete suggestions (what people actually search):\n{ac_lines}")
+        top = search_context.get('related_top', [])
+        if top:
+            top_lines = "\n".join(f'  - "{q}"' for q in top[:10])
+            parts.append(f"Top related search queries (from Google Trends):\n{top_lines}")
+        rising = search_context.get('related_rising', [])
+        if rising:
+            rising_lines = "\n".join(f'  - "{q}"' for q in rising[:10])
+            parts.append(f"Rising search queries (fast-growing interest):\n{rising_lines}")
+        if parts:
+            search_data_section = f"""
+REAL SEARCH DATA (use this to optimize for actual search behavior):
+{chr(10).join(parts)}
+
+How to use this data:
+- Use at least 2 of these real queries as H2 headings (rephrased naturally)
+- Use 3-5 of these as FAQ questions
+- Weave relevant keywords naturally into content
+"""
+
     # Author persona
     persona = AUTHOR_PERSONAS.get(author_name, DEFAULT_PERSONA)
     persona_voice = persona['voice']
@@ -388,7 +447,14 @@ Article Requirements:
 - Format: HTML with semantic tags (h2, h3, p, ul, ol, strong, em, blockquote)
 - Tone: Smart, opinionated, conversational — like a knowledgeable colleague explaining over coffee
 - SEO: Include relevant keywords naturally
-{internal_links_section}{external_links_section}{source_section}
+{internal_links_section}{external_links_section}{source_section}{search_data_section}
+HEADING OPTIMIZATION (critical for search visibility):
+- At least 2 of your H2 headings MUST be in question form that matches real search queries
+  * If REAL SEARCH DATA is provided above, use those actual queries as H2 headings (rephrased naturally)
+  * Otherwise use formats like: "What Is [Topic] and Why Does It Matter?", "How Does [Technology] Work?"
+  * These question headings help the article appear in Google's "People Also Ask" boxes
+- Other H2/H3 headings should contain relevant keywords naturally
+
 The article MUST include these elements (but DO NOT use these exact headings — create original, engaging section titles):
 
 1. **A hook that makes readers stop scrolling** — Start with the most surprising or consequential detail, not a summary
@@ -411,27 +477,38 @@ STYLE GUIDE:
 - Use analogies and comparisons to make complex topics accessible
 - End with your specific prediction, not a vague "time will tell" cop-out
 
+FAQ SECTION (append AFTER the main article body — does NOT count toward the word count):
+After the main article content, add exactly this structure:
+<h2>Frequently Asked Questions</h2>
+Then 3-5 Q&A pairs, each as:
+<h3>[Question in natural search query form, ending with ?]</h3>
+<p>[Concise, specific answer with facts/numbers — 2-3 sentences max]</p>
+Rules for FAQ:
+- Questions must reflect what real users would type into Google about this topic
+- Answers must contain specific facts, not vague generalities
+- Do NOT repeat information already covered in the main article — add NEW useful details
+- Example question formats: "How much does X cost?", "Is X better than Y?", "When will X be available?"
+
 Format: HTML only (h2, h3, p, ul, ol, strong, em, blockquote). No <html>/<head>/<body> tags.
 
 Also provide:
-- A HEADLINE (under 60 chars) that DEMANDS attention. This is the MOST IMPORTANT part for search CTR.
+- A HEADLINE (under 60 chars) optimized for BOTH search ranking AND click-through.
   HEADLINE RULES:
-  * Use numbers when possible: "5 Reasons...", "The $2B Problem...", "3 Things..."
-  * Use power words: "Shocking", "Critical", "Secret", "Urgent", "Revealed", "Devastating"
-  * Use curiosity gaps: "Why X Is Actually Y", "The Real Reason Behind X", "What Nobody Tells You About X"
-  * Use question format when natural: "Is X the End of Y?", "Why Can't X Do Y?"
+  * Place the primary topic keyword in the FIRST 3-4 words of the headline
+  * Use at most ONE power word (e.g., "Critical", "Revealed") — avoid stacking multiple
+  * Use question format when it matches search intent: "Why Does X Matter?", "How Does X Work?"
   * Include specific details: names, numbers, dates — NOT vague generic titles
   * NEVER use generic titles like "The Future of AI" or "Understanding Blockchain"
-  * Think: would YOU stop scrolling to click this? If not, rewrite it.
-  * Examples of GREAT titles: "Tesla's $500M Gamble Just Backfired", "Why Google Killed Its Own AI Project", "The 3 Lines of Code That Crashed AWS"
-  * Examples of BAD titles: "Exploring the Impact of Technology", "AI Continues to Evolve", "New Developments in Tech"
+  * The headline should clearly signal what the reader will learn, not just tease
+  * Examples of GREAT titles: "Tesla Battery Costs Drop 40% in 2025", "Why Google Killed Its Own AI Project", "GPT-5 vs Gemini 3: Key Differences Explained"
+  * Examples of BAD titles: "Exploring the Impact of Technology", "Shocking AI Revelation Changes Everything", "You Won't Believe What Happened"
 
-- A META DESCRIPTION (under 155 chars) optimized for search CTR:
-  * Start with a hook — the most surprising fact or consequence
-  * Include a number or specific detail
-  * End with an implied benefit of reading: what will the reader learn or understand?
-  * Use active voice and urgency
-  * Example: "A single API change broke 40% of plugins overnight. Here's what went wrong and what developers need to do now."
+- A META DESCRIPTION (under 155 chars) optimized for search CTR and People Also Ask:
+  * Start by answering the most likely search query about this topic in one sentence
+  * Include 2-3 relevant keywords naturally (not stuffed)
+  * End with what the reader will learn or a specific detail that adds value
+  * Use active voice
+  * Example: "Tesla's new battery technology cuts EV costs by 40%. Learn how the 4680 cell design changes pricing, range, and what it means for buyers in 2025."
 
 - A CATEGORY from: IT & BIZ, CULTURE, ECONOMY, ENTERTAINMENT, GAMING, HEALTH, POLICY, SCIENCE, SECURITY, TECH
 
@@ -494,6 +571,7 @@ def generate_article(
     existing_articles: list = None,
     source_url: str = None,
     author_name: str = None,
+    search_context: dict = None,
     **kwargs,
 ) -> Dict:
     """
@@ -515,13 +593,22 @@ def generate_article(
         existing_articles=existing_articles,
         source_url=source_url,
         author_name=author_name,
+        search_context=search_context,
     )
+
+    # Collect valid slugs for internal link validation
+    valid_slugs = set()
+    if existing_articles:
+        valid_slugs = {a['slug'] for a in existing_articles if a.get('slug')}
 
     def _try_generate(provider_name, generate_fn, max_retries=2):
         """Try generating and retry once if word count is too low."""
         for retry in range(max_retries):
             response_text = generate_fn()
             article = _parse_response(response_text, topic)
+            # Validate internal links
+            if valid_slugs and article.get('content'):
+                article['content'] = _validate_internal_links(article['content'], valid_slugs)
             wc = article.get('word_count', 0)
             if wc >= effective_min:
                 logger.info(f"[{provider_name}] Article generated: {article['title']} ({wc} words)")
@@ -587,7 +674,7 @@ def generate_multiple_articles(
             db = get_db_client()
             existing_articles = db.list_articles(limit=100, published_only=False)
             existing_articles_for_links = [
-                {'title': a.get('title', ''), 'slug': a.get('slug', '')}
+                {'title': a.get('title', ''), 'slug': a.get('slug', ''), 'topic': a.get('topic', '')}
                 for a in existing_articles if a.get('slug')
             ]
             existing_titles = {a.get('title', '').lower() for a in existing_articles}
@@ -661,12 +748,21 @@ def generate_multiple_articles(
         author_name = _get_author_for_category(quick_cat)
         logger.info(f"Generating article {len(articles)+1}/{articles_count} [{quick_cat}] by {author_name}: {topic}")
 
+        # Collect real search data for this topic
+        search_context = None
+        try:
+            from scripts.fetch_search_queries import enrich_topic_with_search_data
+            search_context = enrich_topic_with_search_data(topic)
+        except Exception as e:
+            logger.warning(f"Search enrichment failed for '{topic}': {e}")
+
         source_url = topic_data.get('url', '')
         article = generate_article(
             topic,
             existing_articles=existing_articles_for_links,
             source_url=source_url,
             author_name=author_name,
+            search_context=search_context,
             **kwargs,
         )
 
