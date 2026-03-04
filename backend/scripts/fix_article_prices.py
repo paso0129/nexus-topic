@@ -79,8 +79,18 @@ def main():
         return
 
     # Update article
-    client.table("articles").update({"content": content}).eq("slug", SLUG).execute()
-    logger.info(f"Article updated successfully: {SLUG}")
+    result = client.table("articles").update({"content": content}).eq("slug", SLUG).execute()
+    if not result.data:
+        logger.error("Update returned no data — may have failed")
+        sys.exit(1)
+
+    # Verify update
+    verify = client.table("articles").select("content").eq("slug", SLUG).execute()
+    if verify.data and "$24.99" in verify.data[0]["content"]:
+        logger.info(f"Article updated and verified: {SLUG}")
+    else:
+        logger.error("Verification failed — content not updated in DB")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -35,7 +35,13 @@ jobs:
         env:
           REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
         run: |
-          curl -s -X POST "https://www.nexustopic.com/api/revalidate" \
+          RESP=$(curl -s -w "\n%{http_code}" -X POST "https://www.nexustopic.com/api/revalidate" \
             -H "Authorization: Bearer $REVALIDATION_SECRET" \
             -H "Content-Type: application/json" \
-            -d '{"path": "/article/best-streaming-credit-cards-a-skeptics-march-2026-guide"}'
+            -d '{"slug": "best-streaming-credit-cards-a-skeptics-march-2026-guide"}')
+          HTTP_CODE=$(echo "$RESP" | tail -1)
+          BODY=$(echo "$RESP" | head -1)
+          echo "Revalidation response: $HTTP_CODE - $BODY"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::warning::Revalidation failed with HTTP $HTTP_CODE"
+          fi
