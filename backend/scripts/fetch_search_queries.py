@@ -106,22 +106,55 @@ def fetch_related_queries(keyword: str, delay: float = 3.0) -> dict:
 def _extract_core_keyword(keyword: str) -> str:
     """Extract 2-3 core words from a long keyword for better API results.
 
-    Strips common filler words (today, latest, news, trends, month names, etc.)
-    and keeps the most meaningful terms.
+    Strips filler words, title grammar words, and source names.
+    Keeps the most meaningful nouns/topics for autocomplete.
     """
     filler = {
+        # Time/recency
         'latest', 'news', 'today', 'trends', 'trending', 'update', 'updates',
         'current', 'recent', 'breaking', 'new', 'top', 'best', 'guide',
         'january', 'february', 'march', 'april', 'may', 'june',
         'july', 'august', 'september', 'october', 'november', 'december',
         '2024', '2025', '2026', '2027',
+        # Title grammar / structure words
+        'the', 'a', 'an', 'of', 'in', 'on', 'at', 'to', 'for', 'and', 'or',
+        'is', 'are', 'was', 'were', 'be', 'been', 'being', 'has', 'have', 'had',
+        'how', 'why', 'what', 'when', 'where', 'who', 'which', 'that', 'this',
+        'its', 'it', 'by', 'with', 'from', 'as', 'but', 'not', 'no', 'so',
+        'if', 'about', 'into', 'than', 'just', 'also', 'more', 'most', 'some', 'only', 'every', 'many',
+        'will', 'would', 'could', 'should', 'can', 'may', 'might',
+        'do', 'does', 'did', 'your', 'you', 'our', 'we', 'they', 'their',
+        'show', 'shows', 'explain', 'explains', 'chart', 'charts',
+        'say', 'says', 'said', 'tell', 'tells', 'told', 'reveal', 'reveals',
+        'report', 'reports', 'according', 'amid', 'after', 'before', 'during',
+        'still', 'gets', 'got', 'make', 'makes', 'made', 'take', 'takes',
+        'go', 'goes', 'going', 'gone', 'come', 'comes', 'coming',
+        'look', 'looks', 'looking', 'find', 'found', 'keep', 'keeps',
+        'give', 'gives', 'back', 'over', 'out', 'up', 'down',
+        'six', 'five', 'four', 'three', 'two', 'one', 'seven', 'eight', 'nine', 'ten',
+        # Adjectives that dilute search (keep nouns)
+        'extreme', 'massive', 'major', 'critical', 'shocking', 'brutal',
+        'worst', 'weakening', 'growing', 'rising', 'falling', 'biggest',
+        'selfish', 'viral', 'lethal', 'boring', 'great',
+        # Source names (often in RSS titles)
+        'bloomberg', 'reuters', 'cnbc', 'techcrunch', 'wired',
+        'lifehacker', 'arstechnica', 'theverge', 'bbc', 'cnn',
+        'bloomberg.com', 'reuters.com',
     }
+    # Strip punctuation (including 's for possessives)
+    import re
     words = keyword.split()
-    core = [w for w in words if w.lower().strip('.,!?') not in filler]
+    core = []
+    for w in words:
+        cleaned = re.sub(r"[.,!?:;\"'()\-–—]", '', w).strip()
+        # Handle possessives: "China's" → "China"
+        cleaned = re.sub(r"'s$", '', cleaned)
+        if cleaned.lower() not in filler and len(cleaned) > 1:
+            core.append(cleaned)
     if not core:
-        core = words[:2]
-    # Keep max 3 words for autocomplete effectiveness
-    return " ".join(core[:3])
+        core = [re.sub(r"[.,!?:;\"'()\-–—]", '', w) for w in words[:2]]
+    # Keep max 2 words — 2-word queries get far more autocomplete results than 3
+    return " ".join(core[:2])
 
 
 def enrich_topic_with_search_data(keyword: str) -> dict:
