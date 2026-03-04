@@ -86,7 +86,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           cd backend
-          python -m scripts.batch_index || true
+          python -m scripts.batch_index --recent 24 --skip-static || true
 
       - name: Submit sitemaps to Search Console
         if: always()

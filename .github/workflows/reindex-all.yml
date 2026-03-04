@@ -1,9 +1,6 @@
 name: Reindex Articles (Google Indexing API)
 
 on:
-  schedule:
-    # KST 17:00 = UTC 08:00 — Google Indexing API quota resets at Pacific midnight
-    - cron: '0 8 * * *'
   workflow_dispatch:
     inputs:
       mode:
