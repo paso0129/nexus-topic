@@ -154,7 +154,8 @@ def load_config(config_path: str = 'config.yaml') -> Dict:
 
 ALL_CATEGORIES = [
     'IT & BIZ', 'CULTURE', 'ECONOMY', 'ENTERTAINMENT',
-    'GAMING', 'HEALTH', 'POLICY', 'SCIENCE', 'SECURITY', 'TECH',
+    'GAMING', 'HEALTH', 'POLICY', 'SCIENCE', 'TECH',
+    # SECURITY excluded — low search demand, low CPC, hurts AdSense
 ]
 
 _CATEGORY_KEYWORDS: Dict[str, List[str]] = {
@@ -319,7 +320,7 @@ def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]
             selected.append(t)
             used.add(id(t))
 
-    # ECONOMY guarantee: ALWAYS place an ECONOMY topic first
+    # ECONOMY guarantee: ALWAYS place 2 ECONOMY topics at the front
     import random as _rand
     _economy_fallbacks = [
         'stock market today nasdaq sp500 performance analysis',
@@ -335,15 +336,17 @@ def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]
         'ipo market new listings wall street analysis',
         'exchange rate dollar euro yen forex trends',
     ]
-    # Always insert an ECONOMY topic at position 0 (regardless of existing topics)
-    eco_topic = None
     eco_bucket = buckets.get('ECONOMY', [])
-    _rand.shuffle(eco_bucket)  # randomize to avoid always picking the same one
+    _rand.shuffle(eco_bucket)
+    eco_guaranteed = 0
     for t in eco_bucket:
-        if id(t) not in used:
-            eco_topic = t
-            break
-    if eco_topic is None:
+        if id(t) not in used and eco_guaranteed < 2:
+            selected.insert(eco_guaranteed, t)
+            used.add(id(t))
+            eco_guaranteed += 1
+            logger.info(f"ECONOMY topic guaranteed #{eco_guaranteed}: {t.get('keyword', '')[:60]}")
+    # Fill remaining ECONOMY slots with fallbacks if needed
+    while eco_guaranteed < 2:
         today = datetime.now().strftime('%B %Y')
         fallback_kw = _rand.choice(_economy_fallbacks)
         eco_topic = {
@@ -354,9 +357,10 @@ def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]
             'url': '',
             '_quick_cat': 'ECONOMY',
         }
-    selected.insert(0, eco_topic)
-    used.add(id(eco_topic))
-    logger.info(f"ECONOMY topic guaranteed at position 0: {eco_topic.get('keyword', '')[:60]}")
+        selected.insert(eco_guaranteed, eco_topic)
+        used.add(id(eco_topic))
+        eco_guaranteed += 1
+        logger.info(f"ECONOMY fallback guaranteed #{eco_guaranteed}: {eco_topic.get('keyword', '')[:60]}")
 
     # Append generic category keywords as last resort
     for cat in priority_order:
