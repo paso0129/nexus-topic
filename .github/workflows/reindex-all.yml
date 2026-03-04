@@ -1,7 +1,19 @@
-name: Reindex All Articles (Google Indexing API)
+name: Reindex Articles (Google Indexing API)
 
 on:
+  schedule:
+    # KST 17:00 = UTC 08:00 — Google Indexing API quota resets at Pacific midnight
+    - cron: '0 8 * * *'
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Indexing mode'
+        required: true
+        default: 'recent'
+        type: choice
+        options:
+          - recent
+          - all
 
 jobs:
   reindex:
@@ -23,7 +35,7 @@ jobs:
           cd backend
           pip install -r requirements.txt
 
-      - name: Run batch index (URL_UPDATED for all articles)
+      - name: Run batch index
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
@@ -31,4 +43,8 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           cd backend
-          python -m scripts.batch_index
+          if [ "${{ inputs.mode }}" = "all" ]; then
+            python -m scripts.batch_index
+          else
+            python -m scripts.batch_index --recent 24 --skip-static
+          fi
