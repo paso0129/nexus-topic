@@ -781,11 +781,14 @@ def generate_multiple_articles(
         author_name = _get_author_for_category(quick_cat)
         logger.info(f"Generating article {len(articles)+1}/{articles_count} [{quick_cat}] by {author_name}: {topic}")
 
-        # Collect real search data for this topic
+        # Collect real search data for this topic (use Gemini-extracted keyword if available)
         search_context = None
         try:
             from scripts.fetch_search_queries import enrich_topic_with_search_data
-            search_context = enrich_topic_with_search_data(topic)
+            ai_keyword = topic_data.get('_ai_core_keyword', '')
+            search_context = enrich_topic_with_search_data(
+                topic, core_keyword_override=ai_keyword or None
+            )
         except Exception as e:
             logger.warning(f"Search enrichment failed for '{topic}': {e}")
 

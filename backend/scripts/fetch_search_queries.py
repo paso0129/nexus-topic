@@ -103,78 +103,141 @@ def fetch_related_queries(keyword: str, delay: float = 3.0) -> dict:
     return {"top": [], "rising": []}
 
 
-def _extract_core_keyword(keyword: str) -> str:
-    """Extract 2-3 core words from a long keyword for better API results.
-
-    Strips filler words, title grammar words, and source names.
-    Keeps the most meaningful nouns/topics for autocomplete.
-    """
-    filler = {
-        # Time/recency
-        'latest', 'news', 'today', 'trends', 'trending', 'update', 'updates',
-        'current', 'recent', 'breaking', 'new', 'top', 'best', 'guide',
-        'january', 'february', 'march', 'april', 'may', 'june',
-        'july', 'august', 'september', 'october', 'november', 'december',
-        '2024', '2025', '2026', '2027',
-        # Title grammar / structure words
+def _extract_core_keyword_fallback(keyword: str) -> str:
+    """Simple fallback: strip punctuation, skip common words, take first 2 significant words."""
+    import re
+    _skip = {
         'the', 'a', 'an', 'of', 'in', 'on', 'at', 'to', 'for', 'and', 'or',
-        'is', 'are', 'was', 'were', 'be', 'been', 'being', 'has', 'have', 'had',
+        'is', 'are', 'was', 'were', 'has', 'have', 'had', 'be', 'been',
         'how', 'why', 'what', 'when', 'where', 'who', 'which', 'that', 'this',
         'its', 'it', 'by', 'with', 'from', 'as', 'but', 'not', 'no', 'so',
-        'if', 'about', 'into', 'than', 'just', 'also', 'more', 'most', 'some', 'only', 'every', 'many',
-        'will', 'would', 'could', 'should', 'can', 'may', 'might',
-        'do', 'does', 'did', 'your', 'you', 'our', 'we', 'they', 'their',
-        'show', 'shows', 'explain', 'explains', 'chart', 'charts',
-        'say', 'says', 'said', 'tell', 'tells', 'told', 'reveal', 'reveals',
-        'report', 'reports', 'according', 'amid', 'after', 'before', 'during',
-        'determine', 'determines', 'suggest', 'suggests', 'indicate', 'indicates',
-        'announce', 'announces', 'aim', 'aims', 'raise', 'raises', 'hit', 'hits',
-        'add', 'adds', 'set', 'sets', 'offer', 'offers', 'want', 'wants',
-        'step', 'steps', 'need', 'needs', 'help', 'helps', 'support', 'supports',
-        'community', 'tracker', 'watch',
-        'still', 'gets', 'got', 'make', 'makes', 'made', 'take', 'takes',
-        'go', 'goes', 'going', 'gone', 'come', 'comes', 'coming',
-        'look', 'looks', 'looking', 'find', 'found', 'keep', 'keeps',
-        'give', 'gives', 'back', 'over', 'out', 'up', 'down',
-        'six', 'five', 'four', 'three', 'two', 'one', 'seven', 'eight', 'nine', 'ten',
-        # Adjectives that dilute search (keep nouns)
-        'extreme', 'massive', 'major', 'critical', 'shocking', 'brutal',
-        'worst', 'weakening', 'growing', 'rising', 'falling', 'biggest',
-        'selfish', 'viral', 'lethal', 'boring', 'great',
-        # RSS title noise
-        'exclusive', 'breaking', 'update', 'report', 'analysis',
-        'star', 'reveals', 'cancel', 'cancels', 'upcoming',
-        'deadline', 'appearances', 'convention', 'diagnosis',
-        # Source names (often in RSS titles)
-        'bloomberg', 'reuters', 'cnbc', 'techcrunch', 'wired',
-        'lifehacker', 'arstechnica', 'theverge', 'bbc', 'cnn',
-        'bloomberg.com', 'reuters.com', 'pennlivecom', 'triblivecom',
-        'wfmzcom',
+        'your', 'you', 'our', 'we', 'they', 'their', 'my', 'will', 'would',
+        'new', 'just', 'more', 'most', 'up', 'out', 'may', 'can', 'do', 'does',
+        'star', 'reveals', 'says', 'tells', 'six', 'dear',
     }
-    import re
     words = keyword.split()
     core = []
     for w in words:
-        # Handle possessives FIRST: "YouTube's" → "YouTube", "China's" → "China"
-        cleaned = re.sub(r"[\u2018\u2019\u0027]s\b", '', w)
-        # Then strip ALL non-alphanumeric/space chars (catches every quote/punct variant)
-        cleaned = re.sub(r"[^a-zA-Z0-9 ]", '', cleaned).strip()
-        if cleaned.lower() not in filler and len(cleaned) > 1:
+        cleaned = re.sub(r"[^a-zA-Z0-9]", '', w).strip()
+        if cleaned.lower() not in _skip and len(cleaned) > 1:
             core.append(cleaned)
+        if len(core) >= 2:
+            break
     if not core:
-        core = [re.sub(r"[.,!?:;\"'()\-–—]", '', w) for w in words[:2]]
-    # Keep max 2 words — 2-word queries get far more autocomplete results than 3
+        core = [re.sub(r"[^a-zA-Z0-9]", '', w) for w in words[:2] if len(w) > 1]
     return " ".join(core[:2])
 
 
-def enrich_topic_with_search_data(keyword: str) -> dict:
+def classify_and_extract_keywords(topics: list[dict]) -> list[dict]:
+    """Use Gemini Flash to classify categories and extract search keywords for topics.
+
+    Takes a list of topic dicts with 'keyword' field.
+    Returns the same list with '_ai_category' and '_ai_core_keyword' added.
+    Falls back to simple heuristics if Gemini fails.
+    """
+    import os
+    import json as _json
+
+    VALID_CATEGORIES = {
+        'IT & BIZ', 'CULTURE', 'ECONOMY', 'ENTERTAINMENT',
+        'GAMING', 'HEALTH', 'POLICY', 'SCIENCE', 'TECH',
+    }
+
+    # Build batch prompt — process up to 30 topics per call
+    batch_size = 30
+    for batch_start in range(0, len(topics), batch_size):
+        batch = topics[batch_start:batch_start + batch_size]
+
+        topic_lines = []
+        for i, t in enumerate(batch):
+            topic_lines.append(f"{i+1}. {t.get('keyword', '')[:120]}")
+
+        prompt = f"""Classify each topic into exactly ONE category and extract a 2-word Google search keyword.
+
+Categories: {', '.join(sorted(VALID_CATEGORIES))}
+
+Rules for category:
+- ECONOMY: stocks, markets, finance, crypto, trade, tariffs, earnings, GDP, inflation
+- ENTERTAINMENT: movies, TV, celebrities, music, actors, streaming
+- TECH: hardware, gadgets, chips, phones, devices, EVs, batteries
+- IT & BIZ: AI, startups, SaaS, cloud, software, enterprise, funding
+- SCIENCE: research, space, NASA, physics, biology, discoveries
+- HEALTH: medical, drugs, diseases, FDA, wellness, mental health
+- POLICY: government, legislation, elections, regulation, courts
+- GAMING: video games, consoles, esports, game studios
+- CULTURE: art, social trends, lifestyle, books, fashion, food
+
+Rules for keyword:
+- Extract exactly 2 words that people would actually type into Google
+- Use the main subject/noun, not verbs or adjectives
+- Examples: "Bruce Campbell cancer" not "Evil Dead Star", "Apple MacBook" not "New Chips"
+
+Topics:
+{chr(10).join(topic_lines)}
+
+Respond in JSON array format only, no markdown:
+[{{"id":1,"category":"TECH","keyword":"Apple MacBook"}},{{"id":2,"category":"ECONOMY","keyword":"Bitcoin ETF"}}]"""
+
+        try:
+            from google import genai
+            from google.genai import types as genai_types
+
+            api_key = os.getenv('GOOGLE_API_KEY')
+            if not api_key:
+                raise RuntimeError("No API key")
+
+            client = genai.Client(api_key=api_key)
+            response = client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt,
+                config=genai_types.GenerateContentConfig(
+                    temperature=0.1,
+                    max_output_tokens=2048,
+                ),
+            )
+
+            # Parse response
+            text = response.text.strip()
+            # Strip markdown code fences if present
+            text = text.removeprefix('```json').removeprefix('```').removesuffix('```').strip()
+            results = _json.loads(text)
+
+            for item in results:
+                idx = item.get('id', 0) - 1
+                if 0 <= idx < len(batch):
+                    cat = item.get('category', 'TECH').upper()
+                    if cat not in VALID_CATEGORIES:
+                        cat = 'TECH'
+                    batch[idx]['_ai_category'] = cat
+                    batch[idx]['_ai_core_keyword'] = item.get('keyword', '')[:50]
+
+            classified = sum(1 for t in batch if '_ai_category' in t)
+            logger.info(f"Gemini classified {classified}/{len(batch)} topics")
+
+        except Exception as e:
+            logger.warning(f"Gemini classification failed: {e}")
+
+        # Fallback for any topics that weren't classified
+        for t in batch:
+            if '_ai_category' not in t:
+                t['_ai_category'] = t.get('_quick_cat', 'TECH')
+            if '_ai_core_keyword' not in t:
+                t['_ai_core_keyword'] = _extract_core_keyword_fallback(t.get('keyword', ''))
+
+    return topics
+
+
+def enrich_topic_with_search_data(keyword: str, core_keyword_override: str = None) -> dict:
     """Collect autocomplete + related queries for a topic keyword.
 
-    Extracts 2-3 core words for autocomplete, uses original for pytrends.
+    Args:
+        keyword: Full topic title/keyword
+        core_keyword_override: Pre-extracted core keyword from Gemini (skips local extraction)
+
     Returns {'autocomplete': [...], 'related_top': [...], 'related_rising': [...]}.
     """
-    # Extract core keyword for autocomplete (short = better results)
-    core_keyword = _extract_core_keyword(keyword)
+    # Use Gemini-extracted keyword if available, otherwise fallback
+    core_keyword = core_keyword_override or _extract_core_keyword_fallback(keyword)
     # Truncate original for pytrends (accepts longer queries)
     words = keyword.split()
     pytrends_keyword = " ".join(words[:5]) if len(words) > 5 else keyword

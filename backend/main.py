@@ -273,10 +273,20 @@ def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]
     Select topics with category balance, prioritizing underrepresented categories.
     Checks DB for recent category distribution and picks from the least represented first.
     """
-    # Classify all topics
+    # Classify all topics using Gemini AI
+    try:
+        from scripts.fetch_search_queries import classify_and_extract_keywords
+        topics = classify_and_extract_keywords(topics)
+        logger.info("Gemini AI classification complete")
+    except Exception as e:
+        logger.warning(f"Gemini classification failed, using keyword matching: {e}")
+        for t in topics:
+            t['_ai_category'] = _quick_classify(t['keyword'])
+            t['_ai_core_keyword'] = ''
+
     buckets: Dict[str, List[Dict]] = defaultdict(list)
     for t in topics:
-        cat = _quick_classify(t['keyword'])
+        cat = t.get('_ai_category') or _quick_classify(t['keyword'])
         t['_quick_cat'] = cat
         buckets[cat].append(t)
 
