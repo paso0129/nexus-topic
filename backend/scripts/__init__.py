@@ -10,16 +10,14 @@ __author__ = "WordPress AdSense Automation"
 
 from .fetch_trending import (
     fetch_google_trends,
-    fetch_hackernews_top
+    fetch_reddit_hot,
 )
 from .generate_content import generate_article
 from .optimize_adsense import optimize_ad_placement
-from .publish_wordpress import publish_to_wordpress
 
 __all__ = [
     'fetch_google_trends',
-    'fetch_hackernews_top',
+    'fetch_reddit_hot',
     'generate_article',
     'optimize_adsense',
-    'publish_to_wordpress',
 ]
