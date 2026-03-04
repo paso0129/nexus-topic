@@ -103,31 +103,55 @@ def fetch_related_queries(keyword: str, delay: float = 3.0) -> dict:
     return {"top": [], "rising": []}
 
 
+def _extract_core_keyword(keyword: str) -> str:
+    """Extract 2-3 core words from a long keyword for better API results.
+
+    Strips common filler words (today, latest, news, trends, month names, etc.)
+    and keeps the most meaningful terms.
+    """
+    filler = {
+        'latest', 'news', 'today', 'trends', 'trending', 'update', 'updates',
+        'current', 'recent', 'breaking', 'new', 'top', 'best', 'guide',
+        'january', 'february', 'march', 'april', 'may', 'june',
+        'july', 'august', 'september', 'october', 'november', 'december',
+        '2024', '2025', '2026', '2027',
+    }
+    words = keyword.split()
+    core = [w for w in words if w.lower().strip('.,!?') not in filler]
+    if not core:
+        core = words[:2]
+    # Keep max 3 words for autocomplete effectiveness
+    return " ".join(core[:3])
+
+
 def enrich_topic_with_search_data(keyword: str) -> dict:
     """Collect autocomplete + related queries for a topic keyword.
 
-    Truncates long keywords to first 6 words for better API results.
+    Extracts 2-3 core words for autocomplete, uses original for pytrends.
     Returns {'autocomplete': [...], 'related_top': [...], 'related_rising': [...]}.
     """
-    # Truncate long keywords
+    # Extract core keyword for autocomplete (short = better results)
+    core_keyword = _extract_core_keyword(keyword)
+    # Truncate original for pytrends (accepts longer queries)
     words = keyword.split()
-    if len(words) > 6:
-        keyword = " ".join(words[:6])
+    pytrends_keyword = " ".join(words[:5]) if len(words) > 5 else keyword
 
     result = {"autocomplete": [], "related_top": [], "related_rising": []}
 
-    try:
-        result["autocomplete"] = fetch_autocomplete(keyword)
-    except Exception as e:
-        logger.warning(f"Autocomplete collection failed for '{keyword}': {e}")
+    logger.info(f"Search enrichment: core='{core_keyword}', pytrends='{pytrends_keyword}'")
 
     try:
-        related = fetch_related_queries(keyword)
+        result["autocomplete"] = fetch_autocomplete(core_keyword)
+    except Exception as e:
+        logger.warning(f"Autocomplete collection failed for '{core_keyword}': {e}")
+
+    try:
+        related = fetch_related_queries(pytrends_keyword)
         result["related_top"] = related.get("top", [])
         result["related_rising"] = related.get("rising", [])
     except Exception as e:
-        logger.warning(f"Related queries collection failed for '{keyword}': {e}")
+        logger.warning(f"Related queries collection failed for '{pytrends_keyword}': {e}")
 
     total = len(result["autocomplete"]) + len(result["related_top"]) + len(result["related_rising"])
-    logger.info(f"Search enrichment: {total} queries collected for '{keyword}'")
+    logger.info(f"Search enrichment: {total} queries collected for '{core_keyword}'")
     return result
