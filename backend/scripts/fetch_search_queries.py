@@ -127,6 +127,11 @@ def _extract_core_keyword(keyword: str) -> str:
         'show', 'shows', 'explain', 'explains', 'chart', 'charts',
         'say', 'says', 'said', 'tell', 'tells', 'told', 'reveal', 'reveals',
         'report', 'reports', 'according', 'amid', 'after', 'before', 'during',
+        'determine', 'determines', 'suggest', 'suggests', 'indicate', 'indicates',
+        'announce', 'announces', 'aim', 'aims', 'raise', 'raises', 'hit', 'hits',
+        'add', 'adds', 'set', 'sets', 'offer', 'offers', 'want', 'wants',
+        'step', 'steps', 'need', 'needs', 'help', 'helps', 'support', 'supports',
+        'community', 'tracker', 'watch',
         'still', 'gets', 'got', 'make', 'makes', 'made', 'take', 'takes',
         'go', 'goes', 'going', 'gone', 'come', 'comes', 'coming',
         'look', 'looks', 'looking', 'find', 'found', 'keep', 'keeps',
@@ -141,14 +146,14 @@ def _extract_core_keyword(keyword: str) -> str:
         'lifehacker', 'arstechnica', 'theverge', 'bbc', 'cnn',
         'bloomberg.com', 'reuters.com',
     }
-    # Strip punctuation (including 's for possessives)
     import re
     words = keyword.split()
     core = []
     for w in words:
-        cleaned = re.sub(r"[.,!?:;\"'()\-–—]", '', w).strip()
-        # Handle possessives: "China's" → "China"
-        cleaned = re.sub(r"'s$", '', cleaned)
+        # Handle possessives FIRST: "YouTube's" → "YouTube", "China's" → "China"
+        cleaned = re.sub(r"['']s\b", '', w)
+        # Then strip remaining punctuation
+        cleaned = re.sub(r"[.,!?:;\"'()\-–—'']", '', cleaned).strip()
         if cleaned.lower() not in filler and len(cleaned) > 1:
             core.append(cleaned)
     if not core:
@@ -175,6 +180,11 @@ def enrich_topic_with_search_data(keyword: str) -> dict:
 
     try:
         result["autocomplete"] = fetch_autocomplete(core_keyword)
+        # Fallback: if 2-word query got 0 results, try first word only
+        if not result["autocomplete"] and " " in core_keyword:
+            single = core_keyword.split()[0]
+            logger.info(f"Autocomplete 0 results for '{core_keyword}', retrying with '{single}'")
+            result["autocomplete"] = fetch_autocomplete(single)
     except Exception as e:
         logger.warning(f"Autocomplete collection failed for '{core_keyword}': {e}")
 

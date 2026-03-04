@@ -449,9 +449,9 @@ Article Requirements:
 - SEO: Include relevant keywords naturally
 {internal_links_section}{external_links_section}{source_section}{search_data_section}
 HEADING OPTIMIZATION (critical for search visibility):
-- At least 2 of your H2 headings MUST be in question form that matches real search queries
-  * If REAL SEARCH DATA is provided above, use those actual queries as H2 headings (rephrased naturally)
-  * Otherwise use formats like: "What Is [Topic] and Why Does It Matter?", "How Does [Technology] Work?"
+- MANDATORY: At least 2 of your H2 headings MUST be in question form (ending with ?). This is a HARD REQUIREMENT — articles without 2+ question H2s will be rejected.
+  * If REAL SEARCH DATA is provided above, turn those actual queries into H2 question headings
+  * Use formats like: "What Is [Topic] and Why Does It Matter?", "How Does [Technology] Work?", "Is [X] Worth It in 2026?"
   * These question headings help the article appear in Google's "People Also Ask" boxes
 - Other H2/H3 headings should contain relevant keywords naturally
 
@@ -503,12 +503,12 @@ Also provide:
   * Examples of GREAT titles: "Tesla Battery Costs Drop 40% in 2025", "Why Google Killed Its Own AI Project", "GPT-5 vs Gemini 3: Key Differences Explained"
   * Examples of BAD titles: "Exploring the Impact of Technology", "Shocking AI Revelation Changes Everything", "You Won't Believe What Happened"
 
-- A META DESCRIPTION (under 155 chars) optimized for search CTR and People Also Ask:
+- A META DESCRIPTION (STRICTLY under 155 characters — count carefully, this is a HARD LIMIT):
   * Start by answering the most likely search query about this topic in one sentence
   * Include 2-3 relevant keywords naturally (not stuffed)
-  * End with what the reader will learn or a specific detail that adds value
-  * Use active voice
-  * Example: "Tesla's new battery technology cuts EV costs by 40%. Learn how the 4680 cell design changes pricing, range, and what it means for buyers in 2025."
+  * Use active voice, be specific with numbers/facts
+  * MUST be under 155 characters total including spaces and punctuation
+  * Example (142 chars): "Tesla's new battery cuts EV costs by 40%. Here's how the 4680 cell changes pricing, range, and what it means for buyers."
 
 - A CATEGORY from: IT & BIZ, CULTURE, ECONOMY, ENTERTAINMENT, GAMING, HEALTH, POLICY, SCIENCE, SECURITY, TECH
 
@@ -755,6 +755,12 @@ def generate_multiple_articles(
             search_context = enrich_topic_with_search_data(topic)
         except Exception as e:
             logger.warning(f"Search enrichment failed for '{topic}': {e}")
+
+        # Skip topics with zero search demand (no one is searching for this)
+        ac_count = len(search_context.get('autocomplete', [])) if search_context else 0
+        if ac_count == 0:
+            logger.info(f"Skipping topic with 0 autocomplete results (no search demand): {topic}")
+            continue
 
         source_url = topic_data.get('url', '')
         article = generate_article(

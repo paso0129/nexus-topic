@@ -460,6 +460,15 @@ def get_all_trending_topics(
         'ceasefire', 'occupation', 'siege',
         'ukraine war', 'russia ukraine', 'gaza', 'hamas', 'hezbollah',
         'killed in', 'civilian deaths', 'war crimes',
+        # Iran/US conflict
+        'iran attack', 'iran strike', 'iran bomb', 'iran war',
+        'iran missile', 'iran retaliation', 'iran conflict',
+        'attacks on iran', 'strike on iran', 'iran nuclear strike',
+        'iranian drone', 'iran us war', 'iran military',
+        # General violence / sensitive events
+        'terrorist', 'terrorism', 'hostage', 'execution',
+        'assassination', 'coup', 'civil war', 'ethnic cleansing',
+        'refugee crisis', 'displacement', 'sanctions on',
     ]
     before_filter = len(unique_trends)
     unique_trends = [
