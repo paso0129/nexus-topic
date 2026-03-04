@@ -1,27 +1,18 @@
 """
 Trending Topic Fetcher
 
-Collects trending topics from multiple sources:
-- Google Trends
-- HackerNews
-- Dev.to
-- Product Hunt
-- TechCrunch (RSS)
-- The Verge (RSS)
-- NewsAPI
+Collects trending topics from two sources:
+- Google Trends (US/UK/CA daily trends RSS)
+- Reddit (category-balanced subreddits)
 """
 
 import logging
-import os
 import re
-import xml.etree.ElementTree as ET
+import time
 from typing import List, Dict
 from datetime import datetime
 
 import requests
-from dotenv import load_dotenv
-
-load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -30,14 +21,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Reddit subreddits mapped to site categories for balanced topic collection
+SUBREDDIT_MAP = {
+    'TECH': ['technology', 'gadgets'],
+    'IT & BIZ': ['artificial', 'startups'],
+    'ECONOMY': ['economics', 'stocks', 'CryptoCurrency'],
+    'ENTERTAINMENT': ['movies', 'television'],
+    'GAMING': ['gaming', 'Games'],
+    'HEALTH': ['Health', 'medicine'],
+    'SCIENCE': ['science', 'space'],
+    'POLICY': ['politics', 'worldnews'],
+    'CULTURE': ['culture', 'books'],
+}
+
 
 def fetch_google_trends(
-    markets: List[str] = ['US', 'UK', 'CA', 'DE', 'FR'],
+    markets: List[str] = ['US', 'UK', 'CA'],
     limit: int = 10
 ) -> List[Dict]:
     """
-    Fetch trending searches from Google Trends using the daily trends RSS/JSON API.
-    Does not depend on pytrends to avoid urllib3 compatibility issues.
+    Fetch trending searches from Google Trends daily trends RSS.
 
     Args:
         markets: List of country codes (e.g., ['US', 'UK', 'CA'])
@@ -49,7 +52,6 @@ def fetch_google_trends(
     logger.info(f"Fetching Google Trends for markets: {markets}")
     trends_list = []
 
-    # Google Trends daily trends API (no auth needed)
     DAILY_TRENDS_URL = "https://trends.google.com/trending/rss?geo={geo}"
 
     for market in markets:
@@ -61,7 +63,6 @@ def fetch_google_trends(
             )
             resp.raise_for_status()
 
-            # Parse RSS XML for titles
             import xml.etree.ElementTree as ET
             root = ET.fromstring(resp.text)
             items = root.findall('.//item/title')
@@ -89,281 +90,92 @@ def fetch_google_trends(
     return trends_list
 
 
-def fetch_hackernews_top(limit: int = 10) -> List[Dict]:
+def fetch_reddit_hot(limit_per_sub: int = 10) -> List[Dict]:
     """
-    Fetch top stories from HackerNews.
+    Fetch hot posts from Reddit across category-balanced subreddits.
+
+    Uses Reddit's public JSON API (no auth required).
+    Respects rate limits with 2-second delay between requests.
 
     Args:
-        limit: Number of stories to fetch
+        limit_per_sub: Maximum posts to fetch per subreddit
 
     Returns:
         List of trending topics with metadata
     """
-    logger.info(f"Fetching top {limit} HackerNews stories")
+    logger.info("Fetching Reddit hot posts across all categories")
     trends_list = []
+    headers = {'User-Agent': 'NexusTopic/1.0 (trending topic collector)'}
 
-    try:
-        # Get top story IDs
-        response = requests.get(
-            'https://hacker-news.firebaseio.com/v0/topstories.json',
-            timeout=10
-        )
-        response.raise_for_status()
-        story_ids = response.json()[:limit]
-
-        # Fetch story details
-        for idx, story_id in enumerate(story_ids):
+    for category, subreddits in SUBREDDIT_MAP.items():
+        for subreddit in subreddits:
             try:
-                story_response = requests.get(
-                    f'https://hacker-news.firebaseio.com/v0/item/{story_id}.json',
-                    timeout=10
+                resp = requests.get(
+                    f'https://www.reddit.com/r/{subreddit}/hot.json?limit={limit_per_sub + 5}',
+                    headers=headers,
+                    timeout=15,
                 )
-                story_response.raise_for_status()
-                story = story_response.json()
+                resp.raise_for_status()
+                data = resp.json()
 
-                if story and 'title' in story:
-                    trends_list.append({
-                        'keyword': story['title'],
-                        'source': 'hackernews',
-                        'score': story.get('score', 0),
-                        'region': 'global',
-                        'url': story.get('url', f'https://news.ycombinator.com/item?id={story_id}'),
-                        'timestamp': datetime.now().isoformat()
-                    })
+                count = 0
+                for post in data.get('data', {}).get('children', []):
+                    post_data = post.get('data', {})
 
-            except Exception as e:
-                logger.error(f"Error fetching HN story {story_id}: {str(e)}")
-                continue
+                    # Skip stickied/pinned posts
+                    if post_data.get('stickied', False):
+                        continue
 
-        logger.info(f"Fetched {len(trends_list)} stories from HackerNews")
+                    title = post_data.get('title', '').strip()
+                    if not title:
+                        continue
 
-    except Exception as e:
-        logger.error(f"Error fetching HackerNews top stories: {str(e)}")
-
-    return trends_list
-
-
-def fetch_devto_trending(limit: int = 10) -> List[Dict]:
-    """Fetch trending articles from Dev.to."""
-    logger.info(f"Fetching top {limit} Dev.to articles")
-    trends_list = []
-
-    try:
-        response = requests.get(
-            'https://dev.to/api/articles',
-            params={'top': 1, 'per_page': limit},
-            headers={'User-Agent': 'NexusTopic/1.0'},
-            timeout=10,
-        )
-        response.raise_for_status()
-        articles = response.json()
-
-        for article in articles:
-            trends_list.append({
-                'keyword': article['title'],
-                'source': 'devto',
-                'score': article.get('public_reactions_count', 0),
-                'region': 'global',
-                'url': article.get('url', ''),
-                'timestamp': datetime.now().isoformat(),
-            })
-
-        logger.info(f"Fetched {len(trends_list)} articles from Dev.to")
-
-    except Exception as e:
-        logger.warning(f"Dev.to fetch failed: {str(e)}")
-
-    return trends_list
-
-
-def fetch_producthunt(limit: int = 10) -> List[Dict]:
-    """Fetch today's top products from Product Hunt via Atom feed."""
-    logger.info(f"Fetching top {limit} Product Hunt items")
-    trends_list = []
-    atom_ns = '{http://www.w3.org/2005/Atom}'
-
-    try:
-        response = requests.get(
-            'https://www.producthunt.com/feed',
-            headers={'User-Agent': 'Mozilla/5.0'},
-            timeout=15,
-        )
-        response.raise_for_status()
-
-        root = ET.fromstring(response.text)
-        entries = root.findall(f'{atom_ns}entry')
-
-        for idx, entry in enumerate(entries[:limit]):
-            title = entry.find(f'{atom_ns}title')
-            link = entry.find(f'{atom_ns}link')
-            if title is not None and title.text:
-                link_url = link.get('href', '') if link is not None else ''
-                trends_list.append({
-                    'keyword': title.text,
-                    'source': 'producthunt',
-                    'score': limit - idx,
-                    'region': 'global',
-                    'url': link_url,
-                    'timestamp': datetime.now().isoformat(),
-                })
-
-        logger.info(f"Fetched {len(trends_list)} items from Product Hunt")
-
-    except Exception as e:
-        logger.warning(f"Product Hunt fetch failed: {str(e)}")
-
-    return trends_list
-
-
-def fetch_tech_rss(limit: int = 10) -> List[Dict]:
-    """Fetch latest articles from tech and business RSS feeds."""
-    logger.info("Fetching RSS feeds (tech + business + finance)")
-    trends_list = []
-
-    feeds = [
-        # Tech
-        ('https://techcrunch.com/feed/', 'techcrunch'),
-        ('https://www.theverge.com/rss/index.xml', 'theverge'),
-        ('https://www.wired.com/feed/rss', 'wired'),
-        # Business & Finance
-        ('https://feeds.bloomberg.com/technology/news.rss', 'bloomberg'),
-        ('https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910', 'cnbc'),
-        ('https://finance.yahoo.com/news/rssindex', 'yahoo_finance'),
-        # Science & Health
-        ('https://rss.nytimes.com/services/xml/rss/nyt/Science.xml', 'nytimes_science'),
-        ('https://www.newscientist.com/section/news/feed/', 'newscientist'),
-        # Culture & Entertainment
-        ('https://news.google.com/rss/search?q=culture+trends&hl=en-US&gl=US&ceid=US:en', 'google_news_culture'),
-        ('https://news.google.com/rss/search?q=entertainment+news&hl=en-US&gl=US&ceid=US:en', 'google_news_entertainment'),
-        # Economy & Policy
-        ('https://news.google.com/rss/search?q=economy+market+news&hl=en-US&gl=US&ceid=US:en', 'google_news_economy'),
-        ('https://news.google.com/rss/search?q=policy+regulation+government&hl=en-US&gl=US&ceid=US:en', 'google_news_policy'),
-    ]
-
-    for feed_url, source_name in feeds:
-        try:
-            response = requests.get(
-                feed_url,
-                headers={'User-Agent': 'Mozilla/5.0'},
-                timeout=15,
-            )
-            response.raise_for_status()
-
-            root = ET.fromstring(response.text)
-            # Handle both RSS <item> and Atom <entry>
-            items = root.findall('.//{http://www.w3.org/2005/Atom}entry') or root.findall('.//item')
-
-            count = 0
-            for idx, item in enumerate(items[:limit]):
-                # Try Atom <title> then RSS <title>
-                title = item.find('{http://www.w3.org/2005/Atom}title')
-                if title is None:
-                    title = item.find('title')
-                link = item.find('{http://www.w3.org/2005/Atom}link')
-                if link is None:
-                    link = item.find('link')
-
-                if title is not None and title.text:
-                    link_url = ''
-                    if link is not None:
-                        link_url = link.get('href', '') or link.text or ''
-
-                    trends_list.append({
-                        'keyword': title.text.strip(),
-                        'source': source_name,
-                        'score': limit - idx,
-                        'region': 'global',
-                        'url': link_url,
-                        'timestamp': datetime.now().isoformat(),
-                    })
-                    count += 1
-
-            logger.info(f"Fetched {count} articles from {source_name}")
-
-        except Exception as e:
-            logger.warning(f"{source_name} RSS fetch failed: {str(e)}")
-            continue
-
-    return trends_list
-
-
-def fetch_newsapi(limit: int = 10) -> List[Dict]:
-    """Fetch top headlines from NewsAPI across multiple categories."""
-    api_key = os.environ.get('NEWSAPI_KEY')
-    if not api_key:
-        logger.info("NEWSAPI_KEY not set, skipping NewsAPI")
-        return []
-
-    categories = ['technology', 'entertainment', 'business', 'health', 'science', 'general']
-    per_category = max(3, limit // len(categories))
-    logger.info(f"Fetching NewsAPI headlines across {len(categories)} categories ({per_category} each)")
-    trends_list = []
-
-    for category in categories:
-        try:
-            response = requests.get(
-                'https://newsapi.org/v2/top-headlines',
-                params={
-                    'category': category,
-                    'language': 'en',
-                    'pageSize': per_category,
-                    'apiKey': api_key,
-                },
-                timeout=10,
-            )
-            response.raise_for_status()
-            data = response.json()
-
-            count = 0
-            for idx, article in enumerate(data.get('articles', [])):
-                title = article.get('title', '')
-                if title and title != '[Removed]':
                     trends_list.append({
                         'keyword': title,
-                        'source': f'newsapi_{category}',
-                        'score': per_category - idx,
+                        'source': f'reddit_{subreddit.lower()}',
+                        'score': post_data.get('ups', 0),
                         'region': 'global',
-                        'url': article.get('url', ''),
+                        'url': f"https://www.reddit.com{post_data.get('permalink', '')}",
                         'timestamp': datetime.now().isoformat(),
                     })
                     count += 1
 
-            logger.info(f"Fetched {count} headlines from NewsAPI ({category})")
+                    if count >= limit_per_sub:
+                        break
 
-        except Exception as e:
-            logger.warning(f"NewsAPI fetch failed for {category}: {str(e)}")
-            continue
+                logger.info(f"Fetched {count} posts from r/{subreddit} ({category})")
 
-    logger.info(f"Total NewsAPI headlines: {len(trends_list)}")
+            except Exception as e:
+                logger.warning(f"Reddit r/{subreddit} fetch failed: {str(e)}")
+                continue
+
+            # Rate limit: 2 seconds between subreddit requests
+            time.sleep(2)
+
+    logger.info(f"Total Reddit posts fetched: {len(trends_list)}")
     return trends_list
 
 
 def get_all_trending_topics(
     markets: List[str] = ['US', 'UK', 'CA'],
-    subreddits: List[str] = None,
-    limit_per_source: int = 15
+    limit_per_source: int = 15,
+    **kwargs,
 ) -> List[Dict]:
     """
-    Fetch trending topics from all sources and combine them.
+    Fetch trending topics from Google Trends + Reddit and combine them.
 
     Args:
         markets: Countries for Google Trends
-        subreddits: Unused (kept for backward compatibility)
         limit_per_source: Number of items per source
+        **kwargs: Ignored (backward compatibility)
 
     Returns:
         Combined and sorted list of trending topics
     """
-    logger.info("Fetching trending topics from all sources")
+    logger.info("Fetching trending topics from Google Trends + Reddit")
 
-    all_trends = []
-
-    hn_trends = fetch_hackernews_top(limit=limit_per_source)
     google_trends = fetch_google_trends(markets=markets, limit=limit_per_source)
-    devto_trends = fetch_devto_trending(limit=limit_per_source)
-    ph_trends = fetch_producthunt(limit=limit_per_source)
-    rss_trends = fetch_tech_rss(limit=limit_per_source)
-    newsapi_trends = fetch_newsapi(limit=limit_per_source)
+    reddit_trends = fetch_reddit_hot(limit_per_sub=limit_per_source)
 
     # Normalize scores to 0-100 scale so different sources are comparable
     def _normalize(trends: list) -> list:
@@ -375,20 +187,10 @@ def get_all_trending_topics(
             t['score'] = round((t['score'] / max_score) * 100)
         return trends
 
-    _normalize(hn_trends)
     _normalize(google_trends)
-    _normalize(devto_trends)
-    _normalize(ph_trends)
-    _normalize(rss_trends)
-    _normalize(newsapi_trends)
+    _normalize(reddit_trends)
 
-    # Combine all sources
-    all_trends.extend(hn_trends)
-    all_trends.extend(google_trends)
-    all_trends.extend(devto_trends)
-    all_trends.extend(ph_trends)
-    all_trends.extend(rss_trends)
-    all_trends.extend(newsapi_trends)
+    all_trends = google_trends + reddit_trends
 
     # Boost high-CPC category keywords (finance, insurance, legal, health, AI/SaaS, real estate)
     HIGH_CPC_KEYWORDS = [
@@ -480,15 +282,12 @@ def get_all_trending_topics(
         logger.info(f"Excluded {excluded_count} war/conflict-related topics")
 
     logger.info(f"Total trending topics collected: {len(unique_trends)} (from {len(all_trends)} raw)")
-    logger.info(f"Sources: HackerNews={len(hn_trends)}, Google={len(google_trends)}, "
-                f"Dev.to={len(devto_trends)}, ProductHunt={len(ph_trends)}, "
-                f"RSS={len(rss_trends)}, NewsAPI={len(newsapi_trends)}")
+    logger.info(f"Sources: Google Trends={len(google_trends)}, Reddit={len(reddit_trends)}")
 
     return unique_trends
 
 
 if __name__ == "__main__":
-    # Test the functions
     print("Testing trending topic fetchers...\n")
 
     print("=== Google Trends ===")
@@ -496,15 +295,15 @@ if __name__ == "__main__":
     for trend in google_results:
         print(f"  - {trend['keyword']} (Score: {trend['score']}, Region: {trend['region']})")
 
-    print("\n=== HackerNews Top ===")
-    hn_results = fetch_hackernews_top(limit=5)
-    for trend in hn_results:
-        print(f"  - {trend['keyword'][:60]}... (Score: {trend['score']})")
+    print("\n=== Reddit Hot ===")
+    reddit_results = fetch_reddit_hot(limit_per_sub=3)
+    for trend in reddit_results[:15]:
+        print(f"  - [{trend['source']}] {trend['keyword'][:60]}... (Score: {trend['score']})")
 
     print("\n=== All Combined ===")
     all_results = get_all_trending_topics(
         markets=['US'],
         limit_per_source=3
     )
-    for trend in all_results[:10]:
+    for trend in all_results[:15]:
         print(f"  - {trend['keyword'][:60]}... (Source: {trend['source']}, Score: {trend['score']})")

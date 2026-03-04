@@ -468,7 +468,16 @@ How to use this data:
     persona = AUTHOR_PERSONAS.get(author_name, DEFAULT_PERSONA)
     persona_voice = persona['voice']
 
+    today = datetime.now().strftime('%B %d, %Y')
+
     return f"""Write an in-depth analytical article about this trending topic: {topic}
+
+TODAY'S DATE: {today}
+FACTUAL ACCURACY RULE (CRITICAL — violation will cause article rejection):
+- All prices, statistics, dates, and factual claims MUST be accurate as of {today}.
+- Do NOT rely on memorized/training-data pricing or statistics — these are often outdated.
+- If you are unsure whether a specific number (price, market cap, user count, etc.) is current, use hedging language: "approximately", "as of early 2026", "around $X" — NEVER state an outdated figure as current fact.
+- For subscription prices, product specs, or financial data that change frequently: either verify against the source URL provided or use ranges/approximations.
 
 AUTHOR IDENTITY (THIS IS WHO YOU ARE — stay in character throughout):
 {persona_voice}
