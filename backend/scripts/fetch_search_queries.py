@@ -141,19 +141,24 @@ def _extract_core_keyword(keyword: str) -> str:
         'extreme', 'massive', 'major', 'critical', 'shocking', 'brutal',
         'worst', 'weakening', 'growing', 'rising', 'falling', 'biggest',
         'selfish', 'viral', 'lethal', 'boring', 'great',
+        # RSS title noise
+        'exclusive', 'breaking', 'update', 'report', 'analysis',
+        'star', 'reveals', 'cancel', 'cancels', 'upcoming',
+        'deadline', 'appearances', 'convention', 'diagnosis',
         # Source names (often in RSS titles)
         'bloomberg', 'reuters', 'cnbc', 'techcrunch', 'wired',
         'lifehacker', 'arstechnica', 'theverge', 'bbc', 'cnn',
-        'bloomberg.com', 'reuters.com',
+        'bloomberg.com', 'reuters.com', 'pennlivecom', 'triblivecom',
+        'wfmzcom',
     }
     import re
     words = keyword.split()
     core = []
     for w in words:
         # Handle possessives FIRST: "YouTube's" → "YouTube", "China's" → "China"
-        cleaned = re.sub(r"['']s\b", '', w)
-        # Then strip remaining punctuation
-        cleaned = re.sub(r"[.,!?:;\"'()\-–—'']", '', cleaned).strip()
+        cleaned = re.sub(r"[\u2018\u2019\u0027]s\b", '', w)
+        # Then strip ALL non-alphanumeric/space chars (catches every quote/punct variant)
+        cleaned = re.sub(r"[^a-zA-Z0-9 ]", '', cleaned).strip()
         if cleaned.lower() not in filler and len(cleaned) > 1:
             core.append(cleaned)
     if not core:
