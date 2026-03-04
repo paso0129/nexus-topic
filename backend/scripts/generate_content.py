@@ -331,6 +331,49 @@ def _get_author_for_category(category: str) -> str:
     return cat_author.get((category or '').upper(), 'Alex Chen')
 
 
+ARTICLE_STRUCTURES = [
+    # Structure A: Investigative — "follow the money" / "what they're not telling you"
+    """The article should follow an INVESTIGATIVE structure:
+1. **Lead with the buried headline** — What's the most consequential detail that other outlets buried in paragraph 6? Start there.
+2. **The official narrative vs reality** — Present what companies/officials are saying, then dismantle it with data
+3. **Follow the money** — Who benefits financially? Show specific dollar amounts, market caps, revenue figures
+4. **The historical parallel** — Find a previous event with a similar pattern. What happened then? What does it predict now?
+5. **The stakeholders nobody's talking about** — Who else is affected that mainstream coverage ignores?
+6. **Your verdict** — State your position clearly, backed by the evidence you've presented. No hedging.
+7. **The one metric to watch** — Give readers a single, specific indicator they can track to see if your analysis is correct""",
+
+    # Structure B: Explainer — "here's what you need to know"
+    """The article should follow an EXPLAINER structure:
+1. **The 30-second version** — Open with a punchy 2-3 sentence summary that a busy reader can screenshot and share
+2. **Why this matters to YOU** — Make it personal. How does this affect the reader's job, wallet, or daily life?
+3. **How we got here** — A brief, sharp timeline (use a numbered/bulleted list) of the 3-5 key events leading to this moment
+4. **How it actually works** — Break down the technical/complex parts with analogies. Compare to something the reader already understands
+5. **The debate** — Present the strongest argument FOR and AGAINST. Use real quotes or positions from named figures
+6. **What happens next** — Lay out 2-3 specific scenarios with probabilities. "Most likely (60%): ... Less likely but possible (30%): ..."
+7. **The bottom line** — One paragraph, one clear takeaway the reader should remember""",
+
+    # Structure C: Contrarian — challenge the consensus
+    """The article should follow a CONTRARIAN structure:
+1. **State the consensus** — What does everyone assume about this topic? Lay it out fairly in 2-3 sentences
+2. **The crack in the narrative** — Identify the one data point, trend, or overlooked fact that undermines the consensus
+3. **Build the counter-case** — Present your alternative interpretation with 3+ supporting data points. Use <strong> for key numbers
+4. **The strongest objection** — What's the best argument against YOUR position? Address it honestly — don't strawman
+5. **The real-world test** — How would we know if you're right or wrong? Name specific, measurable outcomes within a timeframe
+6. **Who's already betting on this** — Name companies, investors, or researchers who are quietly acting on this contrarian view
+7. **Your call to action** — Tell the reader what to do differently based on this analysis""",
+
+    # Structure D: Deep-dive profile — focus on a person, company, or technology
+    """The article should follow a DEEP-DIVE structure:
+1. **The defining moment** — Open with a specific scene, quote, or event that captures the essence of the story
+2. **The backstory** — How did we get to this point? Focus on the 2-3 decisions or events that matter most
+3. **By the numbers** — A data-rich section with at least 4-5 specific statistics. Present them visually with bullet points or comparisons
+4. **The competitive landscape** — Who are the key players? Use a brief comparison (Company A does X, Company B does Y, our subject does Z)
+5. **The hidden risk** — What could go wrong that nobody is pricing in? Be specific about the vulnerability
+6. **The insider perspective** — Share insight that feels like it comes from someone who actually works in this space
+7. **The 12-month outlook** — Where will this story be in a year? Make a specific, falsifiable prediction""",
+]
+
+
 def _build_prompt(
     topic: str,
     min_words: int,
@@ -342,6 +385,8 @@ def _build_prompt(
     search_context: dict = None,
 ) -> str:
     """Build the article generation prompt."""
+    # Randomly select article structure for variety
+    structure_block = random.choice(ARTICLE_STRUCTURES)
 
     # Build internal links section
     internal_links_section = ""
@@ -455,27 +500,15 @@ HEADING OPTIMIZATION (critical for search visibility):
   * These question headings help the article appear in Google's "People Also Ask" boxes
 - Other H2/H3 headings should contain relevant keywords naturally
 
-The article MUST include these elements (but DO NOT use these exact headings — create original, engaging section titles):
-
-1. **A hook that makes readers stop scrolling** — Start with the most surprising or consequential detail, not a summary
-2. **The "So What?" context** — Why should a busy reader care about this RIGHT NOW? What changes for them?
-3. **Data & evidence** — Include at least 2-3 specific statistics, market figures, user numbers, or research findings. Use <strong> tags to highlight key numbers
-4. **An angle others are missing** — What are mainstream outlets NOT saying? What's the deeper pattern or second-order effect?
-5. **Comparison with precedent** — Compare this to a previous similar event or the existing approach. Example: "Compared to method A, this new approach B is innovative because..." or "The last time something like this happened was in 2021, and here's what followed."
-6. **Your editorial take** — A clearly labeled opinion section (use <blockquote> for editorial commentary). What do YOU think this means?
-7. **Future impact projection** — THIS IS CRITICAL. Do NOT end with vague platitudes. Instead, make a SPECIFIC prediction:
-   - "If this technology reaches commercial scale, expect [specific change] in [specific industry] within [timeframe]"
-   - "For professionals in [specific field], this signals that [specific actionable insight]"
-   - "The downstream effect I'm watching: [specific second-order consequence that isn't obvious]"
-   This is the section that separates human insight from AI regurgitation. Be bold. Be specific. Be willing to be wrong.
+{structure_block}
 
 STYLE GUIDE:
 - Write like a columnist, not a wire service — personality and perspective matter
 - Break up walls of text with short paragraphs (2-3 sentences max)
-- Use <blockquote> for editorial asides: "Editor's take: This is bigger than it looks because..."
 - Embed data naturally: "That 47% year-over-year jump isn't just impressive — it's unprecedented in this sector"
 - Use analogies and comparisons to make complex topics accessible
-- End with your specific prediction, not a vague "time will tell" cop-out
+- End with a strong, specific conclusion — never vague "time will tell" cop-outs
+- IMPORTANT: Do NOT use "Editor's Take:" labels or "My Prediction:" labels — weave opinions and forecasts naturally into the prose like a real columnist would
 
 FAQ SECTION (append AFTER the main article body — does NOT count toward the word count):
 After the main article content, add exactly this structure:
