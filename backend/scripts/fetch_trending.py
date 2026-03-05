@@ -272,11 +272,30 @@ def get_all_trending_topics(
         'assassination', 'coup', 'civil war', 'ethnic cleansing',
         'refugee crisis', 'displacement', 'sanctions on',
     ]
+    # Economy/finance keywords — if present alongside a war keyword, allow through
+    ECONOMY_PASS = {
+        'stock', 'stocks', 'market', 'markets', 'crash', 'plunge', 'drop',
+        'index', 'kospi', 'kosdaq', 'nikkei', 'dow', 'nasdaq', 's&p',
+        'investor', 'investors', 'economy', 'recession', 'gdp', 'oil price',
+        'trade', 'tariff', 'sanctions', 'treasury', 'bond', 'currency',
+        'won', 'yen', 'euro', 'dollar', 'fed', 'central bank',
+        'sell-off', 'selloff', 'rally', 'bear market', 'bull market',
+        'circuit breaker', 'volatility',
+    }
+
+    def _is_excluded(keyword: str) -> bool:
+        kw = f' {keyword.lower()} '
+        has_war = any(excl in kw for excl in EXCLUDED_KEYWORDS)
+        if not has_war:
+            return False
+        # Allow if the topic also contains economy/finance terms
+        kw_lower = keyword.lower()
+        if any(econ in kw_lower for econ in ECONOMY_PASS):
+            return False
+        return True
+
     before_filter = len(unique_trends)
-    unique_trends = [
-        t for t in unique_trends
-        if not any(excl in f' {t["keyword"].lower()} ' for excl in EXCLUDED_KEYWORDS)
-    ]
+    unique_trends = [t for t in unique_trends if not _is_excluded(t['keyword'])]
     excluded_count = before_filter - len(unique_trends)
     if excluded_count > 0:
         logger.info(f"Excluded {excluded_count} war/conflict-related topics")
