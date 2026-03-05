@@ -10,22 +10,24 @@
 ## 아키텍처
 
 ```
-트렌딩 수집 (Google Trends + Reddit + HackerNews + Dev.to + ProductHunt + RSS)
+트렌딩 수집 (Google Trends + Reddit 18개 서브레딧)
     ↓
-카테고리별 라운드로빈 주제 선택 (10개 카테고리 균형)
+실제 검색 데이터 수집 (Google Autocomplete + pytrends)
+    ↓
+카테고리별 라운드로빈 주제 선택 (9개 카테고리 균형, ECONOMY 우선)
     ↓
 저자 페르소나 매칭 (Alex Chen / Sarah Mitchell / Maya Rodriguez)
     ↓
-Gemini AI 기사 생성 (CLI: 2.5 Pro / API: 3 Flash Preview)
-  - Anti-AI 패턴 적용 (구어체, 1인칭, 비유, 미래 예측)
+Gemini AI 기사 생성 (CLI: 3.1 Pro Preview / API: 2.5 Pro 폴백)
+  - Anti-AI 패턴 + 날짜 기반 팩트체크 프롬프팅
     ↓
-AI 카테고리 재분류 검증
+Gemini AI 카테고리 재분류 검증
     ↓
 커버 이미지 생성 (Gemini 2.5 Flash Image → Unsplash 폴백)
     ↓
 Supabase 저장 (DB + Storage)
     ↓
-Google Indexing API 알림
+Google Indexing API + IndexNow + WebSub 알림
     ↓
 프론트엔드 ISR 캐시 Revalidation
 ```
@@ -35,19 +37,19 @@ Google Indexing API 알림
 | 항목 | 기술 |
 |------|------|
 | **언어** | Python 3.10+ |
-| **AI 기사** | Gemini 2.5 Pro (CLI, 1차) → Gemini 3 Flash Preview (API, 폴백) |
+| **AI 기사** | Gemini 3.1 Pro Preview (CLI, 1차) → Gemini 2.5 Pro (API, 폴백) |
 | **AI 이미지** | Gemini 2.5 Flash Image → Unsplash (폴백) |
-| **AI 분류** | Gemini 3 Flash Preview (API) → Gemini 2.5 Flash (CLI, 폴백) |
+| **AI 분류** | Gemini AI 기반 (키워드 매칭 → AI 분류로 전환) |
 | **DB** | Supabase (PostgreSQL + Storage) |
-| **SEO** | Google Indexing API (자동 알림) |
-| **CI/CD** | GitHub Actions |
+| **SEO** | Google Indexing API + IndexNow + WebSub + Search Console Analytics |
+| **CI/CD** | GitHub Actions (하루 4회 자동 생성) |
 | **호스팅** | Vercel (Frontend) + Cloudflare (DNS) |
 
-## 카테고리 (10개)
+## 카테고리 (9개)
 
-IT & BIZ, CULTURE, ECONOMY, ENTERTAINMENT, GAMING, HEALTH, POLICY, SCIENCE, SECURITY, TECH
+IT & BIZ, CULTURE, ECONOMY, ENTERTAINMENT, GAMING, HEALTH, POLICY, SCIENCE, TECH
 
-> AI + BIZ & IT 카테고리가 2026-02-19에 IT & BIZ로 통합됨
+> SECURITY 카테고리 제거 (2026-03), ECONOMY 2개 기사 우선 보장
 
 ## 저자 시스템
 
@@ -79,47 +81,53 @@ backend/
 ├── requirements.txt
 ├── scripts/
 │   ├── database.py                # Supabase 클라이언트
-│   ├── fetch_trending.py          # 트렌딩 수집 (6개 소스)
-│   ├── generate_content.py        # Gemini 기사 생성 + 저자 페르소나
-│   ├── reclassify.py              # AI 카테고리 재분류
+│   ├── fetch_trending.py          # 트렌딩 수집 (Google Trends + Reddit)
+│   ├── fetch_search_queries.py    # 실제 검색 데이터 수집 (Autocomplete + pytrends)
+│   ├── generate_content.py        # Gemini 기사 생성 + 저자 페르소나 + 팩트체크
+│   ├── reclassify.py              # Gemini AI 카테고리 재분류
 │   ├── fetch_images.py            # 커버 이미지 (Gemini AI + Unsplash)
+│   ├── backfill_images.py         # 이미지 없는 기사 보충
 │   ├── optimize_adsense.py        # AdSense 배치 최적화
 │   ├── save_article.py            # Supabase + JSON 이중 저장
 │   ├── notify_indexing.py         # Google Indexing API (URL_UPDATED / URL_DELETED)
-│   ├── batch_index.py             # 일괄 인덱싱 (정적 페이지 + 카테고리 포함)
-│   ├── rewrite_articles.py        # 기존 기사 일괄 리라이팅
+│   ├── notify_search_engines.py   # IndexNow + WebSub 알림
+│   ├── batch_index.py             # 일괄 인덱싱 (최근 24시간 + 정적 페이지)
+│   ├── submit_sitemaps.py         # Search Console 사이트맵 제출
+│   ├── search_analytics.py        # Search Console 성과 분석
+│   ├── cleanup_deleted.py         # 삭제된 기사 URL_DELETED 전송
 │   └── supabase_schema.sql        # DB 스키마
 └── .github/workflows/
-    ├── generate-content.yml       # 자동 기사 생성 (현재 일시 중단)
-    ├── reindex.yml                # 수동 Google Indexing API 호출
-    └── backfill-images.yml        # 이미지 없는 기사 보충
+    ├── generate-content.yml       # 자동 기사 생성 (하루 4회, 랜덤 딜레이)
+    ├── backfill-images.yml        # 이미지 없는 기사 AI 이미지 보충
+    ├── expand-articles.yml        # 1500단어 미만 기사 보강
+    ├── cleanup-deleted.yml        # 삭제 기사 인덱싱 정리
+    ├── delete-urls.yml            # URL 삭제 요청
+    ├── search-analytics.yml       # Search Console 성과 수집
+    ├── reindex-all.yml            # 전체 URL 일괄 인덱싱
+    └── fix-article.yml            # 기사 내용 수정 (일회성)
 ```
 
 ## 실행 방법
 
+> **로컬 실행 불가** — .env 파일이 없으며 모든 시크릿은 GitHub Actions Secrets에서 관리됩니다.
+
 ```bash
-cd backend
-source venv/bin/activate
-
-# 기사 생성
-python main.py --articles 2
-
-# 기존 기사 리라이팅 (저자 페르소나 적용)
-python scripts/rewrite_articles.py --limit 10
-
-# Google Indexing API 일괄 호출 (GitHub Actions 권장)
-python -m scripts.batch_index
+# GitHub Actions에서 수동 실행 (workflow_dispatch)
+gh workflow run "Generate Daily Articles" --repo paso0129/nexus-topic -f articles=1
 ```
 
 ## GitHub Actions Workflows
 
 | Workflow | 트리거 | 설명 |
 |----------|--------|------|
-| `generate-content.yml` | ~~12시간마다~~ 일시 중단 (수동만) | 기사 자동 생성 (2개/회) |
-| `reindex.yml` | 수동 (workflow_dispatch) | 전체 URL Google Indexing API 알림 |
-| `backfill-images.yml` | 수동 | 이미지 없는 기사에 AI 이미지 생성 |
-
-> 자동 포스팅은 콘텐츠 품질 개선 기간 동안 일시 중단됨 (2026-02-19~)
+| `generate-content.yml` | 하루 4회 cron + 수동 | 기사 자동 생성 (1개/회, 랜덤 5~55분 딜레이) |
+| `backfill-images.yml` | 수동 | 이미지 없는 기사에 Gemini AI/Unsplash 이미지 보충 |
+| `expand-articles.yml` | 수동 | 1500단어 미만 기사 보강 |
+| `cleanup-deleted.yml` | 수동 | 삭제된 기사 URL_DELETED 전송 |
+| `delete-urls.yml` | 수동 | 특정 URL 삭제 요청 |
+| `search-analytics.yml` | 수동 | Search Console 성과 데이터 수집 |
+| `reindex-all.yml` | 수동 | 전체 URL 일괄 Google Indexing |
+| `fix-article.yml` | 수동 | 기사 내용 일회성 수정 |
 
 ## 환경 변수 (GitHub Secrets)
 
@@ -130,21 +138,43 @@ python -m scripts.batch_index
 | `SUPABASE_URL` | Supabase 프로젝트 URL |
 | `SUPABASE_SERVICE_KEY` | Supabase Service Role Key |
 | `UNSPLASH_ACCESS_KEY` | Unsplash API (이미지 폴백) |
-| `NEWSAPI_KEY` | NewsAPI (트렌딩 수집) |
 | `REVALIDATION_SECRET` | 프론트엔드 캐시 revalidation 토큰 |
+
+## 트렌딩 소스 & 필터
+
+**소스 (2개):**
+- Google Trends — US/UK/CA 마켓 일일 트렌딩 RSS
+- Reddit — 9개 카테고리, 18개 서브레딧 (technology, economics, gaming, politics 등)
+
+**필터:**
+- 전쟁/폭력 콘텐츠 필터 (AdSense 정책 준수)
+- 경제 키워드 예외 — `kospi`, `stock`, `market`, `crash` 등이 포함된 경우 전쟁 필터 우회
+- HIGH CPC 부스트 — 금융/보험/법률/헬스/AI/부동산/에너지 키워드 점수 상향
+- 중복 제거 — Jaccard 유사도 0.5 이상 필터링
 
 ## 주요 변경 이력
 
 | 날짜 | 변경 |
 |------|------|
+| 2026-03-05 | 트렌딩 소스 단순화: 7개 → Google Trends + Reddit 2개 (카테고리 균형) |
+| 2026-03-05 | 날짜 기반 팩트체크 프롬프팅 추가 (가격/통계 hallucination 방지) |
+| 2026-03-05 | 전쟁 필터 경제 키워드 예외 처리 (KOSPI 폭락 등 경제 기사 허용) |
+| 2026-03-03 | 실제 검색 데이터 수집 (Google Autocomplete + pytrends) → 프롬프트 주입 |
+| 2026-03-03 | Gemini AI 기반 카테고리 분류로 전환 (키워드 매칭 제거) |
+| 2026-03-03 | SECURITY 카테고리 제거, ECONOMY 2개 기사 우선 보장 |
+| 2026-03-03 | 기사 확장 스크립트 추가 (1500단어 미만 자동 보강) |
+| 2026-03-01 | 기사 구조 다양화 (5가지 랜덤 템플릿) |
+| 2026-02-28 | SEO 파이프라인 개선: 검색 수요 필터, 전쟁 필터, 프롬프트 튜닝 |
+| 2026-02-25 | Gemini 3.1 Pro Preview (CLI 1차) → 2.5 Pro (API 폴백) 체계 확립 |
+| 2026-02-24 | 카테고리 균형 로직: 과소 대표 카테고리 우선 |
+| 2026-02-22 | 기사 생성 스케줄 하루 4회 재개 (랜덤 5~55분 딜레이) |
+| 2026-02-21 | RSS 소스 확장: Bloomberg, CNBC, Google News, Yahoo Finance 등 |
+| 2026-02-21 | Search Console 분석 스크립트 + 워크플로우 추가 |
 | 2026-02-19 | AI + BIZ & IT → IT & BIZ 카테고리 통합 |
 | 2026-02-19 | 저자 페르소나 시스템 추가 (성별/연령대 기반 글쓰기 톤) |
 | 2026-02-19 | Anti-AI 프롬프트 전면 개편 (사람이 쓴 것 같은 글) |
-| 2026-02-19 | 게시 빈도 축소 (4시간/11개 → 12시간/2개) → 일시 중단 |
 | 2026-02-19 | 기사 352개 → 31개로 축소 (품질 중심 전환) |
-| 2026-02-19 | 기존 기사 전량 리라이팅 (사람냄새 전환) |
 | 2026-02-19 | Google Indexing API URL_DELETED 지원 추가 |
-| 2026-02-19 | reindex.yml workflow 추가 (수동 일괄 인덱싱) |
 | 2026-02-17 | Google Indexing API 자동 알림 추가 |
 | 2026-02-15 | Gemini AI 이미지 생성 + Supabase Storage 업로드 |
 | 2026-02-12 | AdSense 승인 요청 제출 |
