@@ -12,7 +12,7 @@ on:
       articles:
         description: 'Number of articles to generate'
         required: false
-        default: '1'
+        default: '2'
 
 jobs:
   generate:
@@ -53,7 +53,7 @@ jobs:
           GOOGLE_INDEXING_SA_KEY: ${{ secrets.GOOGLE_INDEXING_SA_KEY }}
         run: |
           cd backend
-          python main.py --articles ${{ github.event.inputs.articles || '1' }} || true
+          python main.py --articles ${{ github.event.inputs.articles || '2' }} || true
 
       - name: Revalidate frontend cache
         if: always()
@@ -110,4 +110,4 @@ jobs:
         run: |
           echo "## Article Generation Summary" >> $GITHUB_STEP_SUMMARY
           echo "- Date: $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
-          echo "- Articles requested: ${{ github.event.inputs.articles || '1' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Articles requested: ${{ github.event.inputs.articles || '2' }}" >> $GITHUB_STEP_SUMMARY
