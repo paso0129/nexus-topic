@@ -343,6 +343,7 @@ def _build_prompt(
     source_url: str = None,
     author_name: str = None,
     search_context: dict = None,
+    financial_context: str = None,
 ) -> str:
     """Build the article generation prompt."""
     # Randomly select article structure for variety
@@ -434,6 +435,7 @@ HTML 앵커 태그 사용: <a href="URL" target="_blank" rel="noopener noreferre
 - 모든 가격, 통계, 날짜, 사실관계는 {today} 기준 정확해야 합니다.
 - 학습 데이터의 오래된 가격/통계에 의존하지 마세요.
 - 특정 수치(가격, 시가총액, 사용자 수 등)의 현재 정확성이 불확실하면 "약", "2026년 초 기준", "약 X원" 등 헤지 표현 사용 — 오래된 수치를 현재 사실처럼 쓰지 마세요.
+- 아래에 실시간 금융 데이터가 제공되면, 환율·주가·원자재 가격은 반드시 해당 수치를 사용하세요.
 
 저자 정체성 (글 전체에서 이 캐릭터 유지):
 {persona_voice}
@@ -457,7 +459,7 @@ HTML 앵커 태그 사용: <a href="URL" target="_blank" rel="noopener noreferre
 - 형식: HTML 시맨틱 태그 (h2, h3, p, ul, ol, strong, em, blockquote)
 - 톤: 똑똑하고, 의견이 있고, 대화체 — 전문가 동료가 커피 마시며 설명하는 느낌
 - SEO: 관련 키워드 자연스럽게 포함
-{internal_links_section}{external_links_section}{source_section}{search_data_section}
+{internal_links_section}{external_links_section}{source_section}{search_data_section}{financial_context or ''}
 제목 최적화 (검색 노출 핵심):
 - 필수: H2 제목 중 최소 2개는 질문형(?로 끝남). 이것은 필수 요건.
   * 실제 검색 데이터가 있으면 실제 검색어를 H2 질문 제목으로 변환
@@ -566,6 +568,7 @@ def generate_article(
     source_url: str = None,
     author_name: str = None,
     search_context: dict = None,
+    financial_context: str = None,
     **kwargs,
 ) -> Dict:
     """
@@ -588,6 +591,7 @@ def generate_article(
         source_url=source_url,
         author_name=author_name,
         search_context=search_context,
+        financial_context=financial_context,
     )
 
     # Collect valid slugs for internal link validation
@@ -694,6 +698,17 @@ def generate_multiple_articles(
     except Exception as e:
         logger.warning(f"Could not load local articles index: {str(e)}")
 
+    # Fetch financial data once, share across all articles
+    financial_context = None
+    try:
+        from scripts.fetch_financial_data import fetch_financial_data, format_financial_context
+        fin_data = fetch_financial_data()
+        financial_context = format_financial_context(fin_data)
+        if financial_context:
+            logger.info("Financial data loaded for prompt injection")
+    except Exception as e:
+        logger.warning(f"Financial data fetch failed (continuing without): {e}")
+
     articles = []
     used_topics = set()
     topic_index = 0
@@ -766,6 +781,7 @@ def generate_multiple_articles(
             source_url=source_url,
             author_name=author_name,
             search_context=search_context,
+            financial_context=financial_context,
             **kwargs,
         )
 

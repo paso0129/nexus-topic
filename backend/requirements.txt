@@ -15,6 +15,9 @@ pytrends>=4.9.0  # Google Trends related_queries
 # AI Content Generation
 google-genai>=1.0.0
 
+# Financial Data
+yfinance>=0.2.0
+
 # Google Indexing API
 google-auth>=2.0.0
 
