@@ -47,6 +47,10 @@ _STOPWORDS = frozenset([
     'how', 'what', 'why', 'where', 'who', 'which', 'that', 'this',
     'it', 'its', 'you', 'your', 'we', 'our', 'they', 'their', 'them',
     'he', 'she', 'his', 'her', 'my', 'me', 'up', 'out', 'new',
+    # 한국어 불용어
+    '이', '그', '저', '것', '수', '등', '및', '또', '더', '위해',
+    '대한', '통해', '따른', '관련', '대해', '중인', '있는', '하는',
+    '된다', '있다', '한다', '이다', '된다',
 ])
 
 # Gemini CLI path (cached)
@@ -102,7 +106,7 @@ def _generate_with_gemini_api(prompt: str, model_name: str = "gemini-2.5-pro") -
 def _is_similar(text_a: str, text_b: str, threshold: float = 0.35) -> bool:
     """Check if two texts are similar using word overlap (Jaccard similarity)."""
     def extract_words(text):
-        words = set(re.findall(r'[a-z0-9]+', text))
+        words = set(re.findall(r'[\uAC00-\uD7A3]+|[a-z0-9]+', text.lower()))
         return {w for w in words if len(w) > 1 and w not in _STOPWORDS}
 
     words_a = extract_words(text_a)
@@ -164,7 +168,7 @@ def _is_semantic_duplicate(new_title: str, existing_titles: set) -> bool:
         return False
 
 
-def calculate_reading_time(text: str, words_per_minute: int = 200) -> int:
+def calculate_reading_time(text: str, words_per_minute: int = 150) -> int:
     """Calculate estimated reading time for text."""
     clean_text = re.sub(r'<[^>]+>', '', text)
     word_count = len(clean_text.split())
@@ -239,11 +243,11 @@ def extract_keywords(content: str, max_keywords: int = 10) -> list:
     # Extract heading text with 3x weight
     heading_texts = re.findall(r'<h[23][^>]*>(.*?)</h[23]>', content, re.IGNORECASE)
     heading_clean = ' '.join(re.sub(r'<[^>]+>', '', h) for h in heading_texts)
-    heading_words = re.findall(r'\b[a-z]{4,}\b', heading_clean.lower())
+    heading_words = re.findall(r'[\uAC00-\uD7A3]{2,}|[a-z]{4,}', heading_clean.lower())
 
     # Extract body text
     clean_text = re.sub(r'<[^>]+>', '', content)
-    body_words = re.findall(r'\b[a-z]{4,}\b', clean_text.lower())
+    body_words = re.findall(r'[\uAC00-\uD7A3]{2,}|[a-z]{4,}', clean_text.lower())
 
     word_freq = {}
     for word in body_words:
@@ -261,116 +265,72 @@ def extract_keywords(content: str, max_keywords: int = 10) -> list:
 
 
 VALID_CATEGORIES = [
-    'IT & BIZ', 'CULTURE', 'ECONOMY', 'ENTERTAINMENT',
-    'GAMING', 'HEALTH', 'POLICY', 'SCIENCE', 'SECURITY', 'TECH',
+    '경제', 'IT·테크', '글로벌 경제', '부동산', '연예', '스포츠',
 ]
 
-# Author personas — gender + age + writing voice
+# Author persona — 단일 필명
 AUTHOR_PERSONAS = {
-    'Alex Chen': {
+    '송민재': {
         'gender': 'male',
         'voice': (
-            "You are Alex Chen, a 35-year-old senior tech editor. "
-            "You've spent a decade covering Silicon Valley and have strong opinions shaped by "
-            "years of watching hype cycles come and go. Your writing voice is direct and confident — "
-            "you don't hedge with 'perhaps' or 'maybe'. You use dry humor and occasionally reference "
-            "your own experience debugging code at 2am or sitting through countless product launches. "
-            "You write like a guy who's seen enough tech trends to be skeptical but still genuinely excited "
-            "when something real breaks through. Think: a smart friend who works in tech explaining things over beer."
-        ),
-    },
-    'Sarah Mitchell': {
-        'gender': 'female',
-        'voice': (
-            "You are Sarah Mitchell, a 38-year-old business and policy correspondent. "
-            "You came up through financial journalism and have a sharp eye for the money trail behind every story. "
-            "Your writing is precise and incisive — you cut through PR spin and find the real numbers. "
-            "You occasionally share brief personal observations from covering policy summits or interviewing executives. "
-            "You write with the authority of someone who's read every quarterly report and isn't impressed by buzzwords. "
-            "Think: a sharp colleague who always knows what the real story is behind the press release."
-        ),
-    },
-    'Maya Rodriguez': {
-        'gender': 'female',
-        'voice': (
-            "You are Maya Rodriguez, a 32-year-old culture and entertainment editor. "
-            "You grew up as a gamer and internet native, and your writing reflects genuine passion for the communities you cover. "
-            "Your voice is warm, witty, and culturally fluent — you make references that your audience actually gets. "
-            "You're not afraid to express genuine enthusiasm or disappointment. You write like someone who's actually "
-            "part of these communities, not an outsider looking in. "
-            "Think: your most culturally plugged-in friend who also happens to write really well."
-        ),
-    },
-    'Daniel Park': {
-        'gender': 'male',
-        'voice': (
-            "You are Daniel Park, a 40-year-old economy and markets editor. "
-            "You spent 8 years as a Wall Street analyst before switching to journalism, "
-            "and you still think in numbers before narratives. Your writing turns complex "
-            "market moves, trade wars, and macro trends into stories anyone can follow. "
-            "You're blunt about when the market is irrational and not afraid to call out "
-            "corporate spin. You drop real data points — not vague percentages — and you "
-            "connect the dots between policy decisions and your reader's wallet. "
-            "Think: the friend who actually understands what the Fed just did and explains it without jargon."
+            "당신은 송민재, 36세 경제·IT 전문 칼럼니스트입니다. "
+            "증권사 애널리스트 출신으로 데이터와 숫자를 중시합니다. "
+            "복잡한 경제·기술 이슈를 일반 독자가 이해할 수 있게 풀어쓰되, "
+            "핵심은 정확하게 짚습니다. 문체는 간결하고 직설적이며, "
+            "필요할 때 개인적인 경험이나 의견을 자연스럽게 녹여냅니다. "
+            "한국 경제 시장과 글로벌 트렌드를 연결 짓는 데 강점이 있고, "
+            "독자에게 실질적으로 도움이 되는 인사이트를 제공합니다."
         ),
     },
 }
-DEFAULT_PERSONA = AUTHOR_PERSONAS['Alex Chen']
+DEFAULT_PERSONA = AUTHOR_PERSONAS['송민재']
 
 
 def _get_author_for_category(category: str) -> str:
     """Return author name for a given category."""
-    cat_author = {
-        'IT & BIZ': 'Alex Chen', 'TECH': 'Alex Chen',
-        'SECURITY': 'Alex Chen', 'SCIENCE': 'Alex Chen',
-        'POLICY': 'Sarah Mitchell', 'HEALTH': 'Sarah Mitchell',
-        'ECONOMY': 'Daniel Park',
-        'CULTURE': 'Maya Rodriguez', 'GAMING': 'Maya Rodriguez',
-        'ENTERTAINMENT': 'Maya Rodriguez',
-    }
-    return cat_author.get((category or '').upper(), 'Alex Chen')
+    return '송민재'
 
 
 ARTICLE_STRUCTURES = [
-    # Structure A: Investigative — "follow the money" / "what they're not telling you"
-    """The article should follow an INVESTIGATIVE structure:
-1. **Lead with the buried headline** — What's the most consequential detail that other outlets buried in paragraph 6? Start there.
-2. **The official narrative vs reality** — Present what companies/officials are saying, then dismantle it with data
-3. **Follow the money** — Who benefits financially? Show specific dollar amounts, market caps, revenue figures
-4. **The historical parallel** — Find a previous event with a similar pattern. What happened then? What does it predict now?
-5. **The stakeholders nobody's talking about** — Who else is affected that mainstream coverage ignores?
-6. **Your verdict** — State your position clearly, backed by the evidence you've presented. No hedging.
-7. **The one metric to watch** — Give readers a single, specific indicator they can track to see if your analysis is correct""",
+    # 구조 A: 탐사형 — "돈의 흐름을 따라가라"
+    """기사는 탐사형(INVESTIGATIVE) 구조를 따르세요:
+1. **핵심부터** — 다른 언론이 6번째 문단에 묻어둔 가장 중요한 팩트로 시작
+2. **공식 발표 vs 현실** — 기업/당국의 공식 입장을 제시한 뒤 데이터로 반박
+3. **돈의 흐름** — 누가 이익을 보는가? 구체적 금액, 시가총액, 매출액 제시
+4. **역사적 선례** — 유사한 패턴의 과거 사례 분석. 당시 결과와 현재 시사점
+5. **숨은 이해관계자** — 주류 언론이 놓치는 영향 받는 집단 분석
+6. **결론** — 근거를 바탕으로 명확한 입장 표명. 애매한 표현 금지
+7. **추적 지표** — 독자가 직접 추적할 수 있는 단일 핵심 지표 제시""",
 
-    # Structure B: Explainer — "here's what you need to know"
-    """The article should follow an EXPLAINER structure:
-1. **The 30-second version** — Open with a punchy 2-3 sentence summary that a busy reader can screenshot and share
-2. **Why this matters to YOU** — Make it personal. How does this affect the reader's job, wallet, or daily life?
-3. **How we got here** — A brief, sharp timeline (use a numbered/bulleted list) of the 3-5 key events leading to this moment
-4. **How it actually works** — Break down the technical/complex parts with analogies. Compare to something the reader already understands
-5. **The debate** — Present the strongest argument FOR and AGAINST. Use real quotes or positions from named figures
-6. **What happens next** — Lay out 2-3 specific scenarios with probabilities. "Most likely (60%): ... Less likely but possible (30%): ..."
-7. **The bottom line** — One paragraph, one clear takeaway the reader should remember""",
+    # 구조 B: 해설형 — "핵심 정리"
+    """기사는 해설형(EXPLAINER) 구조를 따르세요:
+1. **30초 요약** — 바쁜 독자가 캡처해서 공유할 수 있는 2-3문장 핵심 요약
+2. **왜 중요한가** — 독자의 직장, 지갑, 일상에 미치는 구체적 영향
+3. **여기까지의 경과** — 핵심 사건 3-5개를 타임라인(번호/불릿 리스트)으로 정리
+4. **작동 원리** — 비유와 비교를 활용해 복잡한 내용을 쉽게 설명
+5. **찬반 분석** — 실명 인물의 실제 입장을 인용하여 핵심 논쟁 정리
+6. **향후 전망** — 2-3개 시나리오를 확률과 함께 제시 ("가능성 60%: ... 30%: ...")
+7. **핵심 정리** — 한 문단, 하나의 명확한 결론""",
 
-    # Structure C: Contrarian — challenge the consensus
-    """The article should follow a CONTRARIAN structure:
-1. **State the consensus** — What does everyone assume about this topic? Lay it out fairly in 2-3 sentences
-2. **The crack in the narrative** — Identify the one data point, trend, or overlooked fact that undermines the consensus
-3. **Build the counter-case** — Present your alternative interpretation with 3+ supporting data points. Use <strong> for key numbers
-4. **The strongest objection** — What's the best argument against YOUR position? Address it honestly — don't strawman
-5. **The real-world test** — How would we know if you're right or wrong? Name specific, measurable outcomes within a timeframe
-6. **Who's already betting on this** — Name companies, investors, or researchers who are quietly acting on this contrarian view
-7. **Your call to action** — Tell the reader what to do differently based on this analysis""",
+    # 구조 C: 반론형 — 통설에 도전
+    """기사는 반론형(CONTRARIAN) 구조를 따르세요:
+1. **통설 정리** — 이 주제에 대한 일반적 인식을 공정하게 2-3문장으로 제시
+2. **균열 포인트** — 통설을 뒤흔드는 하나의 데이터, 트렌드, 간과된 사실 제시
+3. **반론 구축** — 대안적 해석을 3개 이상의 데이터 포인트로 뒷받침. <strong>으로 핵심 수치 강조
+4. **가장 강한 반박** — 내 주장에 대한 가장 강력한 반론을 정직하게 다루기
+5. **검증 방법** — 언제, 어떤 지표로 이 분석이 맞았는지 확인할 수 있는지 제시
+6. **이미 움직이는 사람들** — 이 반론적 시각에 따라 행동하는 기업·투자자 소개
+7. **독자 행동 제안** — 이 분석을 바탕으로 독자가 할 수 있는 구체적 행동""",
 
-    # Structure D: Deep-dive profile — focus on a person, company, or technology
-    """The article should follow a DEEP-DIVE structure:
-1. **The defining moment** — Open with a specific scene, quote, or event that captures the essence of the story
-2. **The backstory** — How did we get to this point? Focus on the 2-3 decisions or events that matter most
-3. **By the numbers** — A data-rich section with at least 4-5 specific statistics. Present them visually with bullet points or comparisons
-4. **The competitive landscape** — Who are the key players? Use a brief comparison (Company A does X, Company B does Y, our subject does Z)
-5. **The hidden risk** — What could go wrong that nobody is pricing in? Be specific about the vulnerability
-6. **The insider perspective** — Share insight that feels like it comes from someone who actually works in this space
-7. **The 12-month outlook** — Where will this story be in a year? Make a specific, falsifiable prediction""",
+    # 구조 D: 심층분석형 — 인물, 기업, 기술 집중
+    """기사는 심층분석형(DEEP-DIVE) 구조를 따르세요:
+1. **결정적 순간** — 이야기의 본질을 담은 구체적 장면, 인용, 사건으로 시작
+2. **배경 스토리** — 가장 중요한 2-3개의 결정이나 사건 중심으로 경과 정리
+3. **숫자로 보기** — 최소 4-5개의 구체적 통계를 불릿 포인트나 비교로 시각적 제시
+4. **경쟁 구도** — 핵심 플레이어 비교 (A사는 X, B사는 Y, 주인공은 Z)
+5. **숨은 리스크** — 아무도 반영하지 않는 잠재적 위험 구체적 분석
+6. **현장 시각** — 업계 내부자의 관점에서 바라본 인사이트
+7. **12개월 전망** — 1년 후 이 이야기가 어떻게 될지 구체적이고 검증 가능한 예측""",
 ]
 
 
@@ -396,16 +356,16 @@ def _build_prompt(
             for a in existing_articles[:30]
         )
         internal_links_section = f"""
-INTERNAL LINKING (IMPORTANT for SEO):
-Below are existing articles on our site with their categories. Link to 2-3 articles that are RELATED to the current topic.
-Use HTML anchor tags: <a href="/article/SLUG">descriptive anchor text</a>
-Rules:
-- Choose articles from the same or related categories when possible
-- Use descriptive anchor text (not "click here" or the full title) — use natural phrases
-- Spread links throughout the article body, not clustered together
-- ONLY use slugs from the list below — do NOT invent slugs
+내부 링크 (SEO 중요):
+아래는 우리 사이트의 기존 기사 목록입니다. 현재 주제와 관련된 2-3개 기사에 링크하세요.
+HTML 앵커 태그 사용: <a href="/article/SLUG">설명적 앵커 텍스트</a>
+규칙:
+- 같은 카테고리 또는 관련 카테고리의 기사를 우선 선택
+- "여기 클릭"이나 전체 제목 대신 자연스러운 문맥의 앵커 텍스트 사용
+- 링크를 본문 전체에 분산 배치
+- 아래 목록의 slug만 사용 — slug을 임의로 만들지 마세요
 
-Existing articles:
+기존 기사:
 {links_list}
 """
 
@@ -413,28 +373,25 @@ Existing articles:
     source_section = ""
     if source_url:
         source_section = f"""
-SOURCE REFERENCE:
-The original source for this trending topic is: {source_url}
-You may reference or link to this source in the article where appropriate using <a href="{source_url}" target="_blank" rel="noopener noreferrer">source text</a>.
+출처 참고:
+이 트렌딩 토픽의 원문 출처: {source_url}
+적절한 곳에서 <a href="{source_url}" target="_blank" rel="noopener noreferrer">출처 텍스트</a>로 참조하세요.
 """
 
     # External links section
     external_links_section = """
-EXTERNAL LINKING (HIGH PRIORITY - credibility & SEO):
-You MUST naturally embed 4-6 outbound links to reputable external sources within the article body. External links are the PRIMARY link type for this article.
-Use HTML anchor tags: <a href="URL" target="_blank" rel="noopener noreferrer">descriptive text</a>
-Link to well-known, authoritative sites such as:
-- Wikipedia (for background context, definitions, historical references)
-- Official company/organization websites (e.g., apple.com, nasa.gov, who.int)
-- Major news outlets (e.g., Reuters, AP News, BBC, The Verge, TechCrunch, Ars Technica, Wired)
-- Government or institutional sources (e.g., FDA, SEC, EPA, NIH, EU official sites)
-- Academic or research sources when relevant
-Rules:
-- Links must be REAL, well-known URLs that are very likely to exist (e.g., https://en.wikipedia.org/wiki/Topic_Name, https://www.reuters.com/, https://techcrunch.com/)
-- Do NOT fabricate specific article URLs - link to homepage or Wikipedia topic pages instead
-- Weave links naturally into sentences, do NOT create a separate "References" or "Sources" section
-- Example: "According to <a href="https://en.wikipedia.org/wiki/Artificial_intelligence" target="_blank" rel="noopener noreferrer">Wikipedia</a>, artificial intelligence has evolved rapidly since..."
-- Example: "The announcement was first reported by <a href="https://www.reuters.com/" target="_blank" rel="noopener noreferrer">Reuters</a>, indicating..."
+외부 링크 (최우선 — 신뢰도 & SEO):
+본문 내에 4-6개의 권위 있는 외부 링크를 자연스럽게 삽입하세요.
+HTML 앵커 태그 사용: <a href="URL" target="_blank" rel="noopener noreferrer">설명 텍스트</a>
+링크 대상:
+- ko.wikipedia.org (배경 설명, 정의, 역사적 맥락)
+- 한국 주요 언론 (한국경제 hankyung.com, 매일경제 mk.co.kr, 연합뉴스 yna.co.kr, KBS news.kbs.co.kr)
+- 공식 기관 (한국은행 bok.or.kr, 금융감독원 fss.or.kr, 통계청 kostat.go.kr)
+- 글로벌 출처 (Reuters, Bloomberg, 공식 기업 사이트)
+규칙:
+- 실제 존재하는 잘 알려진 URL만 사용
+- 특정 기사 URL을 조작하지 말 것 — 홈페이지나 위키백과 주제 페이지 링크
+- 문장에 자연스럽게 녹여서 삽입, 별도 "참고 문헌" 섹션 만들지 말 것
 """
 
     # Build real search data section
@@ -444,122 +401,117 @@ Rules:
         ac = search_context.get('autocomplete', [])
         if ac:
             ac_lines = "\n".join(f'  - "{q}"' for q in ac[:15])
-            parts.append(f"Google Autocomplete suggestions (what people actually search):\n{ac_lines}")
+            parts.append(f"Google 자동완성 제안 (실제 검색어):\n{ac_lines}")
         top = search_context.get('related_top', [])
         if top:
             top_lines = "\n".join(f'  - "{q}"' for q in top[:10])
-            parts.append(f"Top related search queries (from Google Trends):\n{top_lines}")
+            parts.append(f"상위 관련 검색어 (Google Trends):\n{top_lines}")
         rising = search_context.get('related_rising', [])
         if rising:
             rising_lines = "\n".join(f'  - "{q}"' for q in rising[:10])
-            parts.append(f"Rising search queries (fast-growing interest):\n{rising_lines}")
+            parts.append(f"급상승 검색어 (관심도 급증):\n{rising_lines}")
         if parts:
             search_data_section = f"""
-REAL SEARCH DATA (use this to optimize for actual search behavior):
+실제 검색 데이터 (실제 검색 행동에 맞게 최적화하세요):
 {chr(10).join(parts)}
 
-How to use this data:
-- Use at least 2 of these real queries as H2 headings (rephrased naturally)
-- Use 3-5 of these as FAQ questions
-- Weave relevant keywords naturally into content
+활용 방법:
+- 이 실제 검색어 중 2개 이상을 H2 제목으로 활용 (자연스럽게 변형)
+- 3-5개를 FAQ 질문으로 활용
+- 관련 키워드를 본문에 자연스럽게 녹이기
 """
 
     # Author persona
     persona = AUTHOR_PERSONAS.get(author_name, DEFAULT_PERSONA)
     persona_voice = persona['voice']
 
-    today = datetime.now().strftime('%B %d, %Y')
+    today = datetime.now().strftime('%Y년 %m월 %d일')
 
-    return f"""Write an in-depth analytical article about this trending topic: {topic}
+    return f"""다음 트렌딩 토픽에 대해 심층 분석 기사를 한국어로 작성하세요: {topic}
 
-TODAY'S DATE: {today}
-FACTUAL ACCURACY RULE (CRITICAL — violation will cause article rejection):
-- All prices, statistics, dates, and factual claims MUST be accurate as of {today}.
-- Do NOT rely on memorized/training-data pricing or statistics — these are often outdated.
-- If you are unsure whether a specific number (price, market cap, user count, etc.) is current, use hedging language: "approximately", "as of early 2026", "around $X" — NEVER state an outdated figure as current fact.
-- For subscription prices, product specs, or financial data that change frequently: either verify against the source URL provided or use ranges/approximations.
+오늘 날짜: {today}
+사실 정확성 규칙 (위반 시 기사 거절):
+- 모든 가격, 통계, 날짜, 사실관계는 {today} 기준 정확해야 합니다.
+- 학습 데이터의 오래된 가격/통계에 의존하지 마세요.
+- 특정 수치(가격, 시가총액, 사용자 수 등)의 현재 정확성이 불확실하면 "약", "2026년 초 기준", "약 X원" 등 헤지 표현 사용 — 오래된 수치를 현재 사실처럼 쓰지 마세요.
 
-AUTHOR IDENTITY (THIS IS WHO YOU ARE — stay in character throughout):
+저자 정체성 (글 전체에서 이 캐릭터 유지):
 {persona_voice}
 
-You are writing for a tech-savvy audience aged 25-45. This is NOT a generic news summary — it is an ORIGINAL ANALYSIS piece with YOUR personal perspective. Readers come to NexusTopic specifically for the human editorial voice, not wire-service regurgitation.
+한국 25-45세 직장인·투자자를 위해 씁니다. 단순 뉴스 요약이 아닌, 당신의 관점이 담긴 오리지널 분석 기사입니다.
 
-CRITICAL WRITING RULES (anti-AI detection):
-- NEVER start with "In a move that..." / "In an era where..." / "The tech world is buzzing..."
-- NEVER use: "It remains to be seen", "Only time will tell", "In conclusion", "It's worth noting", "landscape", "paradigm shift", "game-changer", "dive into", "delve into", "tapestry", "multifaceted"
-- VARY sentence length dramatically: mix punchy (5-8 words) with longer analytical ones
-- Use FIRST PERSON naturally as your character would: share brief personal reactions, professional experiences, or opinions
-- Include at least ONE contrarian or unexpected angle
-- Add SPECIFIC numbers, dates, percentages, or dollar amounts wherever possible
-- Use rhetorical questions naturally: "But here's the real question:" or "So why does this matter?"
-- Write imperfect, human sentences — occasional fragments, em dashes, parenthetical asides are GOOD
-- Avoid perfectly parallel sentence structures that scream "AI generated"
+글쓰기 핵심 규칙 (AI 탐지 방지):
+- 절대 "~에 나섰다", "~이 화두다", "~이 주목받고 있다"로 시작하지 마세요
+- 금지 표현: "귀추가 주목된다", "지켜봐야 할 것이다", "결론적으로", "주목할 만하다", "패러다임", "게임체인저", "심층적으로", "다각적으로", "~할 것으로 보인다"만 반복
+- 문장 길이를 극적으로 변화: 짧은 문장(5-10자)과 긴 분석 문장을 섞기
+- 1인칭을 자연스럽게 사용: 개인적 반응, 전문 경험, 의견 공유
+- 최소 하나의 반론적/예상 밖 관점 포함
+- 구체적 숫자, 날짜, 퍼센트, 금액을 가능한 한 포함
+- 수사적 질문 자연스럽게 사용: "그런데 진짜 문제는?" "왜 이게 중요할까?"
+- 불완전하고 인간적인 문장 — 파편, 대시, 괄호 삽입 OK
+- AI가 쓴 듯한 완벽한 병렬 구조 피하기
 
-Article Requirements:
-- Target audience: {target_audience}
-- Word count: {min_words}-{max_words} words
-- Format: HTML with semantic tags (h2, h3, p, ul, ol, strong, em, blockquote)
-- Tone: Smart, opinionated, conversational — like a knowledgeable colleague explaining over coffee
-- SEO: Include relevant keywords naturally
+기사 요구사항:
+- 대상 독자: {target_audience}
+- 분량: {min_words}-{max_words} 어절
+- 형식: HTML 시맨틱 태그 (h2, h3, p, ul, ol, strong, em, blockquote)
+- 톤: 똑똑하고, 의견이 있고, 대화체 — 전문가 동료가 커피 마시며 설명하는 느낌
+- SEO: 관련 키워드 자연스럽게 포함
 {internal_links_section}{external_links_section}{source_section}{search_data_section}
-HEADING OPTIMIZATION (critical for search visibility):
-- MANDATORY: At least 2 of your H2 headings MUST be in question form (ending with ?). This is a HARD REQUIREMENT — articles without 2+ question H2s will be rejected.
-  * If REAL SEARCH DATA is provided above, turn those actual queries into H2 question headings
-  * Use formats like: "What Is [Topic] and Why Does It Matter?", "How Does [Technology] Work?", "Is [X] Worth It in 2026?"
-  * These question headings help the article appear in Google's "People Also Ask" boxes
-- Other H2/H3 headings should contain relevant keywords naturally
+제목 최적화 (검색 노출 핵심):
+- 필수: H2 제목 중 최소 2개는 질문형(?로 끝남). 이것은 필수 요건.
+  * 실제 검색 데이터가 있으면 실제 검색어를 H2 질문 제목으로 변환
+  * 형식 예: "코스피 전망은?", "왜 금리가 오르나?", "반도체 투자 지금 해도 될까?"
+  * 질문형 제목은 Google '관련 질문' 박스 노출에 유리
+- 나머지 H2/H3 제목에도 관련 키워드 자연스럽게 포함
 
 {structure_block}
 
-STYLE GUIDE:
-- Write like a columnist, not a wire service — personality and perspective matter
-- Break up walls of text with short paragraphs (2-3 sentences max)
-- Embed data naturally: "That 47% year-over-year jump isn't just impressive — it's unprecedented in this sector"
-- Use analogies and comparisons to make complex topics accessible
-- End with a strong, specific conclusion — never vague "time will tell" cop-outs
-- IMPORTANT: Do NOT use "Editor's Take:" labels or "My Prediction:" labels — weave opinions and forecasts naturally into the prose like a real columnist would
+스타일 가이드:
+- 통신사 기자가 아닌 칼럼니스트처럼 — 개성과 관점이 중요
+- 긴 문단 금지: 2-3문장 최대
+- 데이터를 자연스럽게 녹이기: "전년 대비 47% 급등은 단순히 인상적인 수준이 아니다 — 이 업종에서 전례 없는 수치다"
+- 비유와 비교로 복잡한 주제를 접근 가능하게
+- 강하고 구체적인 결론 — "지켜봐야 할 것이다" 같은 애매한 결말 금지
+- 중요: "에디터 의견:", "전망:" 같은 라벨 사용 금지 — 의견과 예측을 본문에 자연스럽게 녹이기
 
-FAQ SECTION (append AFTER the main article body — does NOT count toward the word count):
-After the main article content, add exactly this structure:
-<h2>Frequently Asked Questions</h2>
-Then 3-5 Q&A pairs, each as:
-<h3>[Question in natural search query form, ending with ?]</h3>
-<p>[Concise, specific answer with facts/numbers — 2-3 sentences max]</p>
-Rules for FAQ:
-- Questions must reflect what real users would type into Google about this topic
-- Answers must contain specific facts, not vague generalities
-- Do NOT repeat information already covered in the main article — add NEW useful details
-- Example question formats: "How much does X cost?", "Is X better than Y?", "When will X be available?"
+자주 묻는 질문 섹션 (본문 뒤에 추가 — 분량에 미포함):
+본문 뒤에 다음 구조를 추가:
+<h2>자주 묻는 질문</h2>
+3-5개 Q&A 쌍:
+<h3>[자연스러운 검색 질문, ?로 끝남]</h3>
+<p>[구체적 사실/숫자가 포함된 간결한 답변 — 2-3문장]</p>
+FAQ 규칙:
+- 실제 사용자가 Google에 입력할 질문 형태
+- 답변에 구체적 사실 포함, 막연한 일반론 금지
+- 본문에서 이미 다룬 내용 반복 금지 — 새로운 유용한 정보 추가
 
-Format: HTML only (h2, h3, p, ul, ol, strong, em, blockquote). No <html>/<head>/<body> tags.
+형식: HTML만 (h2, h3, p, ul, ol, strong, em, blockquote). <html>/<head>/<body> 태그 없음.
 
-Also provide:
-- A HEADLINE (under 60 chars) optimized for BOTH search ranking AND click-through.
-  HEADLINE RULES:
-  * Place the primary topic keyword in the FIRST 3-4 words of the headline
-  * Use at most ONE power word (e.g., "Critical", "Revealed") — avoid stacking multiple
-  * Use question format when it matches search intent: "Why Does X Matter?", "How Does X Work?"
-  * Include specific details: names, numbers, dates — NOT vague generic titles
-  * NEVER use generic titles like "The Future of AI" or "Understanding Blockchain"
-  * The headline should clearly signal what the reader will learn, not just tease
-  * Examples of GREAT titles: "Tesla Battery Costs Drop 40% in 2025", "Why Google Killed Its Own AI Project", "GPT-5 vs Gemini 3: Key Differences Explained"
-  * Examples of BAD titles: "Exploring the Impact of Technology", "Shocking AI Revelation Changes Everything", "You Won't Believe What Happened"
+추가 제공:
+- 제목 (한국어 40자 이내) — 검색 순위 + 클릭률 모두 최적화
+  제목 규칙:
+  * 핵심 키워드를 제목 앞 3-4어절에 배치
+  * 파워 워드는 최대 1개 ("긴급", "확인됨") — 과용 금지
+  * 검색 의도에 맞으면 질문형 사용: "왜 코스피가 하락했나?"
+  * 구체적 정보 포함: 이름, 숫자, 날짜 — 막연한 제목 금지
+  * 좋은 예: "삼성전자 반도체 매출 40% 급감, 원인은?", "코스피 2400선 붕괴, 투자 전략은?"
+  * 나쁜 예: "AI의 미래를 탐구하다", "충격적인 경제 변화"
 
-- A META DESCRIPTION (STRICTLY under 155 characters — count carefully, this is a HARD LIMIT):
-  * Start by answering the most likely search query about this topic in one sentence
-  * Include 2-3 relevant keywords naturally (not stuffed)
-  * Use active voice, be specific with numbers/facts
-  * MUST be under 155 characters total including spaces and punctuation
-  * Example (142 chars): "Tesla's new battery cuts EV costs by 40%. Here's how the 4680 cell changes pricing, range, and what it means for buyers."
+- 메타 설명 (한국어 80자 이내 엄수):
+  * 이 주제에 대한 가장 흔한 검색 의도에 답하는 한 문장
+  * 관련 키워드 2-3개 자연스럽게 포함
+  * 능동태, 구체적 숫자/사실
+  * 80자 이내 (공백·구두점 포함)
 
-- A CATEGORY from: IT & BIZ, CULTURE, ECONOMY, ENTERTAINMENT, GAMING, HEALTH, POLICY, SCIENCE, SECURITY, TECH
+- 카테고리: 경제, IT·테크, 글로벌 경제, 부동산, 연예, 스포츠 중 하나
 
-Format your response as:
-TITLE: [headline]
-META: [meta description]
-CATEGORY: [category]
+응답 형식:
+TITLE: [제목]
+META: [메타 설명]
+CATEGORY: [카테고리]
 CONTENT:
-[HTML content]
+[HTML 콘텐츠]
 """
 
 
@@ -573,20 +525,20 @@ def _parse_response(response_text: str, topic: str) -> Dict:
     if not all([title_match, meta_match, content_match]):
         logger.error("Failed to parse response properly")
         title = topic
-        meta_description = f"Learn about {topic}"
+        meta_description = f"{topic}에 대한 심층 분석"
         content = response_text
     else:
         title = title_match.group(1).strip()
         meta_description = meta_match.group(1).strip()
         content = content_match.group(1).strip()
 
-    category = 'TECH'
+    category = 'IT·테크'
     if category_match:
-        raw_category = category_match.group(1).strip().upper()
+        raw_category = category_match.group(1).strip()
         if raw_category in VALID_CATEGORIES:
             category = raw_category
         else:
-            logger.warning(f"Invalid category '{raw_category}', defaulting to TECH")
+            logger.warning(f"Invalid category '{raw_category}', defaulting to IT·테크")
 
     word_count = len(re.sub(r'<[^>]+>', '', content).split())
     reading_time = calculate_reading_time(content)
@@ -609,7 +561,7 @@ def generate_article(
     topic: str,
     min_words: int = 500,
     max_words: int = 700,
-    target_audience: str = "North American and European readers",
+    target_audience: str = "한국 25-45세 직장인·투자자",
     existing_articles: list = None,
     source_url: str = None,
     author_name: str = None,

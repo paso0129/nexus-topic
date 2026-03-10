@@ -39,7 +39,7 @@ def fetch_autocomplete(keyword: str, delay: float = 1.0) -> list[str]:
     for query in queries:
         try:
             encoded = urllib.parse.quote(query)
-            url = f"http://suggestqueries.google.com/complete/search?client=firefox&q={encoded}"
+            url = f"http://suggestqueries.google.com/complete/search?client=firefox&q={encoded}&hl=ko"
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
@@ -76,8 +76,8 @@ def fetch_related_queries(keyword: str, delay: float = 3.0) -> dict:
             if attempt > 0:
                 time.sleep(delay * 2)
             time.sleep(delay)
-            pytrends = TrendReq(hl="en-US", tz=360)
-            pytrends.build_payload([keyword], timeframe="now 7-d")
+            pytrends = TrendReq(hl="ko", tz=540)
+            pytrends.build_payload([keyword], timeframe="now 7-d", geo="KR")
             related = pytrends.related_queries()
 
             result = {"top": [], "rising": []}
@@ -114,6 +114,9 @@ def _extract_core_keyword_fallback(keyword: str) -> str:
         'your', 'you', 'our', 'we', 'they', 'their', 'my', 'will', 'would',
         'new', 'just', 'more', 'most', 'up', 'out', 'may', 'can', 'do', 'does',
         'star', 'reveals', 'says', 'tells', 'six', 'dear',
+        # 한국어 불용어
+        '이', '그', '저', '것', '수', '등', '및', '의', '를', '을', '에',
+        '은', '는', '가', '이런', '그런', '또', '더', '위해', '대한',
     }
     words = keyword.split()
     core = []
@@ -139,8 +142,7 @@ def classify_and_extract_keywords(topics: list[dict]) -> list[dict]:
     import json as _json
 
     VALID_CATEGORIES = {
-        'IT & BIZ', 'CULTURE', 'ECONOMY', 'ENTERTAINMENT',
-        'GAMING', 'HEALTH', 'POLICY', 'SCIENCE', 'TECH',
+        '경제', 'IT·테크', '글로벌 경제', '부동산', '연예', '스포츠',
     }
 
     # Build batch prompt — process up to 30 topics per call
@@ -152,31 +154,28 @@ def classify_and_extract_keywords(topics: list[dict]) -> list[dict]:
         for i, t in enumerate(batch):
             topic_lines.append(f"{i+1}. {t.get('keyword', '')[:120]}")
 
-        prompt = f"""Classify each topic into exactly ONE category and extract a 2-word Google search keyword.
+        prompt = f"""각 토픽을 정확히 하나의 카테고리로 분류하고, 2단어 Google 검색 키워드를 추출하세요.
 
-Categories: {', '.join(sorted(VALID_CATEGORIES))}
+카테고리: {', '.join(sorted(VALID_CATEGORIES))}
 
-Rules for category:
-- ECONOMY: stocks, markets, finance, crypto, trade, tariffs, earnings, GDP, inflation
-- ENTERTAINMENT: movies, TV, celebrities, music, actors, streaming
-- TECH: hardware, gadgets, chips, phones, devices, EVs, batteries
-- IT & BIZ: AI, startups, SaaS, cloud, software, enterprise, funding
-- SCIENCE: research, space, NASA, physics, biology, discoveries
-- HEALTH: medical, drugs, diseases, FDA, wellness, mental health
-- POLICY: government, legislation, elections, regulation, courts
-- GAMING: video games, consoles, esports, game studios
-- CULTURE: art, social trends, lifestyle, books, fashion, food
+카테고리 규칙:
+- 경제: 주식, 코스피, 코스닥, 금리, 환율, 물가, 한국은행, 기업 실적
+- IT·테크: AI, 반도체, 삼성, 애플, 소프트웨어, 스타트업, 클라우드
+- 글로벌 경제: 나스닥, 연준, 달러, 유가, 비트코인, 관세, 무역전쟁
+- 부동산: 아파트, 전세, 월세, 분양, 청약, 재건축, 대출
+- 연예: 드라마, 영화, 아이돌, K-POP, 넷플릭스, 예능
+- 스포츠: 축구, 야구, KBO, K리그, MLB, NBA, 올림픽
 
-Rules for keyword:
-- Extract exactly 2 words that people would actually type into Google
-- Use the main subject/noun, not verbs or adjectives
-- Examples: "Bruce Campbell cancer" not "Evil Dead Star", "Apple MacBook" not "New Chips"
+키워드 규칙:
+- 실제 사용자가 Google에 입력할 2단어를 추출
+- 핵심 명사 위주, 동사나 형용사 제외
+- 예시: "삼성 반도체", "코스피 전망", "비트코인 시세"
 
-Topics:
+토픽:
 {chr(10).join(topic_lines)}
 
-Respond in JSON array format only, no markdown:
-[{{"id":1,"category":"TECH","keyword":"Apple MacBook"}},{{"id":2,"category":"ECONOMY","keyword":"Bitcoin ETF"}}]"""
+JSON 배열로만 응답, 마크다운 없이:
+[{{"id":1,"category":"IT·테크","keyword":"삼성 반도체"}},{{"id":2,"category":"경제","keyword":"코스피 전망"}}]"""
 
         try:
             from google import genai
@@ -207,7 +206,7 @@ Respond in JSON array format only, no markdown:
                 if 0 <= idx < len(batch):
                     cat = item.get('category', 'TECH').upper()
                     if cat not in VALID_CATEGORIES:
-                        cat = 'TECH'
+                        cat = 'IT·테크'
                     batch[idx]['_ai_category'] = cat
                     batch[idx]['_ai_core_keyword'] = item.get('keyword', '')[:50]
 
@@ -220,7 +219,7 @@ Respond in JSON array format only, no markdown:
         # Fallback for any topics that weren't classified
         for t in batch:
             if '_ai_category' not in t:
-                t['_ai_category'] = t.get('_quick_cat', 'TECH')
+                t['_ai_category'] = t.get('_quick_cat', 'IT·테크')
             if '_ai_core_keyword' not in t:
                 t['_ai_core_keyword'] = _extract_core_keyword_fallback(t.get('keyword', ''))
 

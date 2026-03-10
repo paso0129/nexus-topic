@@ -16,20 +16,16 @@ from pathlib import Path
 import requests
 
 # Category-to-author mapping (must match frontend src/lib/authors.ts)
+_AUTHOR = {'name': '송민재', 'bio': '경제·IT·글로벌 트렌드를 데이터 기반으로 분석합니다.'}
 CATEGORY_AUTHOR_MAP = {
-    'IT & BIZ':      {'name': 'Alex Chen', 'bio': 'Covers AI, cybersecurity, and emerging technologies.'},
-    'TECH':          {'name': 'Alex Chen', 'bio': 'Covers AI, cybersecurity, and emerging technologies.'},
-    'SECURITY':      {'name': 'Alex Chen', 'bio': 'Covers AI, cybersecurity, and emerging technologies.'},
-    'SCIENCE':       {'name': 'Alex Chen', 'bio': 'Covers AI, cybersecurity, and emerging technologies.'},
-    'POLICY':        {'name': 'Sarah Mitchell', 'bio': 'Specializes in tech policy, digital economy, and business strategy.'},
-    'ECONOMY':       {'name': 'Daniel Park', 'bio': 'Covers global markets, macro trends, and the real impact of economic policy.'},
-    'HEALTH':        {'name': 'Sarah Mitchell', 'bio': 'Specializes in tech policy, digital economy, and business strategy.'},
-    'KOREA':         {'name': 'Sarah Mitchell', 'bio': 'Specializes in tech policy, digital economy, and business strategy.'},
-    'CULTURE':       {'name': 'Maya Rodriguez', 'bio': 'Covers gaming, pop culture, and entertainment trends.'},
-    'GAMING':        {'name': 'Maya Rodriguez', 'bio': 'Covers gaming, pop culture, and entertainment trends.'},
-    'ENTERTAINMENT': {'name': 'Maya Rodriguez', 'bio': 'Covers gaming, pop culture, and entertainment trends.'},
+    '경제': _AUTHOR,
+    'IT·테크': _AUTHOR,
+    '글로벌 경제': _AUTHOR,
+    '부동산': _AUTHOR,
+    '연예': _AUTHOR,
+    '스포츠': _AUTHOR,
 }
-DEFAULT_AUTHOR = {'name': 'Alex Chen', 'bio': 'Covers AI, cybersecurity, and emerging technologies.'}
+DEFAULT_AUTHOR = _AUTHOR
 
 
 def _get_author_for_topic(topic: str) -> Dict[str, str]:
@@ -56,6 +52,7 @@ logger = logging.getLogger(__name__)
 def create_slug(title: str) -> str:
     """
     Create URL-friendly slug from title.
+    Handles Korean titles via unidecode transliteration.
 
     Args:
         title: Article title
@@ -63,8 +60,10 @@ def create_slug(title: str) -> str:
     Returns:
         URL slug
     """
-    # Convert to lowercase
-    slug = title.lower()
+    from unidecode import unidecode
+
+    # Transliterate Korean/Unicode to ASCII
+    slug = unidecode(title).lower()
 
     # Remove special characters
     slug = re.sub(r'[^a-z0-9\s-]', '', slug)
@@ -121,7 +120,7 @@ def save_article_to_database(article: Dict) -> bool:
             reading_time=article.get('reading_time', 5),
             word_count=article.get('word_count', 0),
             topic=article.get('topic', ''),
-            published=True,
+            published=False,
             featured_image=article.get('featured_image', ''),
             image_attribution=article.get('image_attribution', {}),
             author=_get_author_for_topic(article.get('topic', '')),
@@ -189,7 +188,7 @@ def save_article(
                 'topic': article.get('topic', ''),
                 'created_at': article.get('timestamp', datetime.now().isoformat()),
                 'updated_at': datetime.now().isoformat(),
-                'published': True,
+                'published': False,
                 'featured_image': article.get('featured_image', ''),
                 'image_attribution': article.get('image_attribution', {}),
                 'source_data': article.get('source_data', {})

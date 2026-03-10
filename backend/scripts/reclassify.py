@@ -22,8 +22,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 VALID_CATEGORIES = [
-    'IT & BIZ', 'CULTURE', 'ECONOMY', 'ENTERTAINMENT',
-    'GAMING', 'HEALTH', 'POLICY', 'SCIENCE', 'SECURITY', 'TECH',
+    '경제', 'IT·테크', '글로벌 경제', '부동산', '연예', '스포츠',
 ]
 
 _gemini_cli_path = shutil.which('gemini')
@@ -32,8 +31,8 @@ _gemini_cli_path = shutil.which('gemini')
 def _parse_category(text: str, fallback: str) -> str:
     """Parse and validate a category from LLM response."""
     category = text.strip().upper()
-    if 'BIZ' in category or 'IT &' in category or category == 'AI':
-        category = 'IT & BIZ'
+    if 'IT' in category or '테크' in category or 'AI' in category or 'TECH' in category:
+        category = 'IT·테크'
     if category in VALID_CATEGORIES:
         return category
     return fallback
@@ -46,16 +45,16 @@ def classify_article(article: Dict) -> str:
     """
     title = article.get('title', '')
     content = article.get('content', '')[:1000]
-    fallback = article.get('topic', 'TECH')
+    fallback = article.get('topic', 'IT·테크')
 
     prompt = (
-        f"This article is currently classified as '{fallback}'. "
-        f"Only change the category if it is CLEARLY wrong. "
-        f"If the current category is reasonable, keep it.\n\n"
-        f"Valid categories: {VALID_CATEGORIES}\n\n"
-        f"Title: {title}\n"
-        f"Content preview: {content}\n\n"
-        f"Reply with ONLY the category name, nothing else."
+        f"이 기사는 현재 '{fallback}'로 분류되어 있습니다. "
+        f"명백히 잘못된 경우에만 카테고리를 변경하세요. "
+        f"현재 카테고리가 합리적이라면 유지하세요.\n\n"
+        f"유효 카테고리: {VALID_CATEGORIES}\n\n"
+        f"제목: {title}\n"
+        f"내용 미리보기: {content}\n\n"
+        f"카테고리 이름만 답하세요. 다른 텍스트 없이."
     )
 
     # Try Gemini API (fast)

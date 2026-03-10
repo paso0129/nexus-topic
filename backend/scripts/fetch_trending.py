@@ -23,20 +23,17 @@ logger = logging.getLogger(__name__)
 
 # Reddit subreddits mapped to site categories for balanced topic collection
 SUBREDDIT_MAP = {
-    'TECH': ['technology', 'gadgets'],
-    'IT & BIZ': ['artificial', 'startups'],
-    'ECONOMY': ['economics', 'stocks', 'CryptoCurrency'],
-    'ENTERTAINMENT': ['movies', 'television'],
-    'GAMING': ['gaming', 'Games'],
-    'HEALTH': ['Health', 'medicine'],
-    'SCIENCE': ['science', 'space'],
-    'POLICY': ['politics', 'worldnews'],
-    'CULTURE': ['culture', 'books'],
+    '경제': ['economics', 'stocks'],
+    'IT·테크': ['technology', 'artificial', 'gadgets'],
+    '글로벌 경제': ['CryptoCurrency', 'wallstreetbets'],
+    '부동산': ['RealEstate'],
+    '연예': ['movies', 'television', 'kpop'],
+    '스포츠': ['sports', 'soccer', 'baseball'],
 }
 
 
 def fetch_google_trends(
-    markets: List[str] = ['US', 'UK', 'CA'],
+    markets: List[str] = ['KR'],
     limit: int = 10
 ) -> List[Dict]:
     """
@@ -70,7 +67,7 @@ def fetch_google_trends(
             count = 0
             for idx, item in enumerate(items[:limit]):
                 keyword = item.text
-                if keyword and len(keyword.split()) >= 3:
+                if keyword and len(keyword) >= 2:
                     trends_list.append({
                         'keyword': keyword,
                         'source': 'google_trends',
@@ -157,7 +154,7 @@ def fetch_reddit_hot(limit_per_sub: int = 10) -> List[Dict]:
 
 
 def get_all_trending_topics(
-    markets: List[str] = ['US', 'UK', 'CA'],
+    markets: List[str] = ['KR'],
     limit_per_source: int = 15,
     **kwargs,
 ) -> List[Dict]:
@@ -194,24 +191,20 @@ def get_all_trending_topics(
 
     # Boost high-CPC category keywords (finance, insurance, legal, health, AI/SaaS, real estate)
     HIGH_CPC_KEYWORDS = [
-        # Finance & Insurance
-        'insurance', 'mortgage', 'credit', 'loan', 'banking', 'invest', 'stock', 'crypto',
-        'bitcoin', 'ethereum', 'finance', 'tax', 'trading', 'hedge fund', 'interest rate',
-        'federal reserve', 'inflation', 'recession', 'economy', 'GDP', 'earnings',
-        # Legal
-        'lawsuit', 'regulation', 'compliance', 'patent', 'antitrust', 'court', 'legal',
-        'privacy', 'GDPR', 'settlement',
-        # Health & Pharma
-        'health', 'medical', 'pharma', 'drug', 'FDA', 'clinical trial', 'vaccine',
-        'healthcare', 'biotech', 'cancer', 'disease', 'therapy',
-        # AI & SaaS & Tech Enterprise
-        'artificial intelligence', ' AI ', 'machine learning', 'SaaS', 'cloud', 'enterprise',
-        'cybersecurity', 'data breach', 'ransomware', 'startup', 'valuation', 'IPO',
-        'acquisition', 'merger', 'funding', 'venture capital',
-        # Real Estate
-        'real estate', 'housing', 'property', 'rent', 'construction',
-        # Energy
-        'oil', 'energy', 'solar', 'EV ', 'electric vehicle', 'battery', 'nuclear',
+        # 한국 금융·보험
+        '주식', '코스피', '코스닥', '금리', '대출', '보험', '투자', '펀드',
+        '적금', '예금', '증권', '채권', '환율', '원화', '달러',
+        # 글로벌 경제
+        'bitcoin', 'ethereum', 'crypto', 'nasdaq', 's&p', '비트코인',
+        '연준', '나스닥', '다우', '유가',
+        # 부동산
+        '아파트', '전세', '월세', '분양', '재건축', '청약', '부동산',
+        # IT·테크
+        '반도체', 'AI', '삼성', '애플', '엔비디아', 'SK하이닉스',
+        'semiconductor', 'nvidia', 'apple',
+        # 기타 고수익
+        'insurance', 'mortgage', 'loan', 'real estate',
+        'stock', 'invest', 'trading',
     ]
 
     for trend in all_trends:
@@ -241,9 +234,9 @@ def get_all_trending_topics(
             if keyword_lower in existing_lower or existing_lower in keyword_lower:
                 is_dup = True
                 break
-            # Word overlap: extract significant words (>2 chars) and check Jaccard similarity
-            words_a = {w for w in re.findall(r'[a-z0-9]+', keyword_lower) if len(w) > 2}
-            words_b = {w for w in re.findall(r'[a-z0-9]+', existing_lower) if len(w) > 2}
+            # Word overlap: extract significant words and check Jaccard similarity
+            words_a = {w for w in re.findall(r'[\uAC00-\uD7A3]+|[a-z0-9]+', keyword_lower) if len(w) > 1}
+            words_b = {w for w in re.findall(r'[\uAC00-\uD7A3]+|[a-z0-9]+', existing_lower) if len(w) > 1}
             if words_a and words_b:
                 overlap = len(words_a & words_b) / len(words_a | words_b)
                 if overlap >= 0.5:
@@ -271,6 +264,9 @@ def get_all_trending_topics(
         'terrorist', 'terrorism', 'hostage', 'execution',
         'assassination', 'coup', 'civil war', 'ethnic cleansing',
         'refugee crisis', 'displacement', 'sanctions on',
+        # 한국어 전쟁/폭력 키워드
+        '전쟁', '폭격', '공습', '미사일', '사망자', '학살',
+        '테러', '인질', '침공', '교전', '포격',
     ]
     # Economy/finance keywords — if present alongside a war keyword, allow through
     ECONOMY_PASS = {

@@ -153,87 +153,45 @@ def load_config(config_path: str = 'config.yaml') -> Dict:
 # ---------------------------------------------------------------------------
 
 ALL_CATEGORIES = [
-    'IT & BIZ', 'CULTURE', 'ECONOMY', 'ENTERTAINMENT',
-    'GAMING', 'HEALTH', 'POLICY', 'SCIENCE', 'TECH',
-    # SECURITY excluded — low search demand, low CPC, hurts AdSense
+    '경제', 'IT·테크', '글로벌 경제', '부동산', '연예', '스포츠',
 ]
 
 _CATEGORY_KEYWORDS: Dict[str, List[str]] = {
-    'ENTERTAINMENT': [
-        'movie', 'actor', 'actress', 'celebrity', 'film', 'music', 'concert',
-        'album', 'award', 'oscar', 'grammy', 'emmy', 'netflix', 'disney',
-        'streaming', 'singer', 'rapper', 'box office', 'trailer', 'tv show',
-        'hollywood', 'bollywood', 'k-pop', 'k-drama', 'anime', 'manga',
-        'reality show', 'broadway', 'podcast', 'spotify',
+    '경제': [
+        '주가', '코스피', '코스닥', '한국은행', '기준금리', '물가', '수출',
+        '원화', '국채', '증시', '상장', '실적', '매출', '영업이익',
+        '삼성전자', '현대차', 'SK', 'LG', '카카오', '네이버',
+        '금리', '환율', '인플레이션', '경기', '소비자물가', '고용',
     ],
-    'ECONOMY': [
-        'stock', 'market', 'inflation', 'gdp', 'trade', 'tariff', 'fed',
-        'interest rate', 'recession', 'earnings', 'ipo', 'crypto', 'bitcoin',
-        'ethereum', 'musk', 'tesla stock', 'wall street', 'bank', 'forex',
-        'economy', 'debt', 'bond', 'commodity', 'oil price', 'gold price',
-        'hedge fund', 'venture capital', 'nasdaq', 'dow jones', 's&p',
-        'central bank', 'monetary', 'fiscal',
-        'trump tariff', 'trade war', 'elon musk', 'treasury', 'yield',
-        'dollar', 'won', 'yen', 'euro', 'exchange rate', 'rally', 'crash',
-        'bull', 'bear', 'investor', 'investment', 'dividend', 'etf',
-        'futures', 'options', 'margin', 'short selling', 'buyback',
+    'IT·테크': [
+        '삼성', '애플', '반도체', 'AI', 'GPU', 'SK하이닉스', '엔비디아',
+        '네이버', '카카오', 'iphone', 'galaxy', '인공지능', 'chatgpt',
+        'openai', 'llm', '클라우드', 'aws', '소프트웨어', '스타트업',
+        '로봇', '드론', '자율주행', '배터리', '디스플레이', '5g',
+        'semiconductor', 'nvidia', 'apple', 'google', 'microsoft',
     ],
-    'SCIENCE': [
-        'research', 'discovery', 'space', 'nasa', 'physics', 'biology',
-        'climate', 'species', 'fossil', 'quantum', 'mars', 'telescope',
-        'cern', 'genome', 'neuroscience', 'ecology', 'asteroid', 'comet',
-        'satellite', 'observatory', 'experiment', 'hypothesis', 'journal',
-        'peer review', 'evolution', 'archaeology',
+    '글로벌 경제': [
+        '나스닥', 's&p500', '연준', '트럼프', '관세', '달러', '유가',
+        '비트코인', '이더리움', '암호화폐', '무역전쟁', '중국경제',
+        'nasdaq', 'fed', 'bitcoin', 'crypto', 'oil', 'trade war',
+        '다우', '엔화', '유로', '금값', '원유', '미국경제',
+        'etf', '선물', '옵션', '공매도', '헤지펀드',
     ],
-    'HEALTH': [
-        'health', 'medical', 'fda', 'vaccine', 'drug', 'hospital', 'disease',
-        'clinical', 'therapy', 'cancer', 'mental health', 'who', 'pandemic',
-        'pharmaceutical', 'patient', 'surgery', 'diagnosis', 'symptom',
-        'treatment', 'wellness', 'nutrition', 'obesity', 'diabetes',
-        'alzheimer', 'antibiotic', 'biotech',
+    '부동산': [
+        '아파트', '전세', '월세', '분양', '재건축', '청약', 'DSR', 'LTV',
+        '대출', '주택', '오피스텔', '상가', '토지', '건설', '시세',
+        '부동산', '임대', '매매', '경매', '리모델링',
     ],
-    'POLICY': [
-        'trump', 'congress', 'legislation', 'election', 'vote', 'president',
-        'white house', 'regulation', 'law', 'sanction', 'government',
-        'senate', 'democrat', 'republican', 'biden', 'supreme court',
-        'executive order', 'immigration', 'diplomacy', 'nato', 'un ',
-        'geopolitics', 'minister', 'parliament',
+    '연예': [
+        '드라마', '영화', '아이돌', 'k-pop', '넷플릭스', '웹툰', '예능',
+        '유튜브', 'netflix', '배우', '가수', '콘서트', '앨범', '시청률',
+        'BTS', '블랙핑크', '뉴진스', '에스파', '음원', '스트리밍',
     ],
-    'IT & BIZ': [
-        'artificial intelligence', ' ai ', 'openai', 'chatgpt', 'llm',
-        'machine learning', 'deep learning', 'neural network', 'gpt',
-        'gemini', 'claude', 'anthropic', 'copilot', 'generative ai',
-        'diffusion', 'transformer', 'language model', 'ai model',
-        'ai agent', 'agi',
-        'startup', 'saas', 'cloud', 'enterprise', 'acquisition', 'merger',
-        'funding', 'revenue', 'profit', 'ceo', 'layoff', 'hiring',
-        'aws', 'azure', 'devops', 'kubernetes', 'microservice',
-        'digital transformation', 'b2b', 'crm', 'erp', 'platform',
-    ],
-    'SECURITY': [
-        'cybersecurity', 'hack', 'breach', 'ransomware', 'malware',
-        'vulnerability', 'exploit', 'phishing', 'encryption', 'zero-day',
-        'firewall', 'ddos', 'threat', 'infosec', 'cve-', 'data leak',
-        'cyber attack', 'password', 'authentication',
-    ],
-    'GAMING': [
-        'game', 'gaming', 'playstation', 'xbox', 'nintendo', 'steam',
-        'esports', 'twitch', 'gamer', 'fps', 'rpg', 'mmorpg', 'fortnite',
-        'minecraft', 'valorant', 'league of legends', 'call of duty',
-        'game pass', 'console', 'pc gaming',
-    ],
-    'CULTURE': [
-        'art', 'museum', 'exhibition', 'book', 'novel', 'author',
-        'festival', 'fashion', 'design', 'photography', 'architecture',
-        'philosophy', 'social media trend', 'meme', 'viral', 'lifestyle',
-        'tradition', 'heritage', 'food culture',
-    ],
-    'TECH': [
-        'apple', 'iphone', 'android', 'google', 'samsung', 'chip',
-        'semiconductor', 'processor', 'gpu', 'nvidia', 'amd', 'intel',
-        'gadget', 'robot', 'drone', 'ev ', 'electric vehicle', 'battery',
-        'display', 'vr ', 'ar ', 'wearable', 'smart home', '5g', '6g',
-        'quantum computing', 'blockchain',
+    '스포츠': [
+        '축구', '야구', 'KBO', 'K리그', 'MLB', 'NBA', '손흥민',
+        '올림픽', 'e스포츠', '프리미어리그', '챔피언스리그',
+        '골프', '테니스', '격투기', 'UFC', 'F1',
+        '국가대표', '월드컵', '아시안게임',
     ],
 }
 
@@ -241,7 +199,7 @@ _CATEGORY_KEYWORDS: Dict[str, List[str]] = {
 def _quick_classify(keyword: str) -> str:
     """Classify a topic keyword into a category using keyword matching."""
     kw_lower = f' {keyword.lower()} '
-    best_cat = 'TECH'
+    best_cat = 'IT·테크'
     best_score = 0
     for cat, words in _CATEGORY_KEYWORDS.items():
         score = sum(1 for w in words if w in kw_lower)
@@ -281,7 +239,7 @@ def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]
     except Exception as e:
         logger.warning(f"Gemini classification failed, using keyword matching: {e}")
         for t in topics:
-            t['_ai_category'] = _quick_classify(t['keyword'])
+            t['_ai_category'] = _quick_classify(t.get('keyword', ''))
             t['_ai_core_keyword'] = ''
 
     buckets: Dict[str, List[Dict]] = defaultdict(list)
@@ -330,23 +288,21 @@ def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]
             selected.append(t)
             used.add(id(t))
 
-    # ECONOMY guarantee: ALWAYS place 2 ECONOMY topics at the front
+    # 경제 guarantee: ALWAYS place 2 경제 topics at the front
     import random as _rand
     _economy_fallbacks = [
-        'stock market today nasdaq sp500 performance analysis',
-        'federal reserve interest rate decision economic impact',
-        'global trade tariffs supply chain disruption',
-        'cryptocurrency bitcoin ethereum market trends',
-        'inflation consumer prices economic outlook',
-        'big tech earnings quarterly results revenue',
-        'venture capital startup funding rounds trends',
-        'oil prices energy markets commodities update',
-        'housing market mortgage rates real estate trends',
-        'central bank monetary policy economic forecast',
-        'ipo market new listings wall street analysis',
-        'exchange rate dollar euro yen forex trends',
+        '코스피 코스닥 증시 전망 분석',
+        '한국은행 기준금리 결정 경제 영향',
+        '수출 무역수지 경기 전망',
+        '삼성전자 실적 반도체 시장',
+        '소비자물가 인플레이션 경제 전망',
+        '원달러 환율 외환시장 동향',
+        '국채 금리 채권시장 분석',
+        '부동산 시장 아파트 시세 동향',
+        '스타트업 투자 벤처캐피탈 동향',
+        '고용 실업률 일자리 경제지표',
     ]
-    eco_bucket = buckets.get('ECONOMY', [])
+    eco_bucket = buckets.get('경제', [])
     _rand.shuffle(eco_bucket)
     eco_guaranteed = 0
     for t in eco_bucket:
@@ -354,32 +310,31 @@ def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]
             selected.insert(eco_guaranteed, t)
             used.add(id(t))
             eco_guaranteed += 1
-            logger.info(f"ECONOMY topic guaranteed #{eco_guaranteed}: {t.get('keyword', '')[:60]}")
-    # Fill remaining ECONOMY slots with fallbacks if needed
+            logger.info(f"경제 topic guaranteed #{eco_guaranteed}: {t.get('keyword', '')[:60]}")
+    # Fill remaining 경제 slots with fallbacks if needed
     while eco_guaranteed < 2:
-        today = datetime.now().strftime('%B %Y')
+        today = datetime.now().strftime('%Y년 %m월')
         fallback_kw = _rand.choice(_economy_fallbacks)
         eco_topic = {
             'keyword': f'{fallback_kw} {today}',
             'source': 'economy_guarantee',
             'score': 50,
-            'region': 'global',
+            'region': 'KR',
             'url': '',
-            '_quick_cat': 'ECONOMY',
+            '_quick_cat': '경제',
         }
         selected.insert(eco_guaranteed, eco_topic)
         used.add(id(eco_topic))
         eco_guaranteed += 1
-        logger.info(f"ECONOMY fallback guaranteed #{eco_guaranteed}: {eco_topic.get('keyword', '')[:60]}")
+        logger.info(f"경제 fallback guaranteed #{eco_guaranteed}: {eco_topic.get('keyword', '')[:60]}")
 
     # Append generic category keywords as last resort
     for cat in priority_order:
-        cat_label = cat.lower().replace(' & ', ' and ')
         selected.append({
-            'keyword': f'latest {cat_label} trending news today',
+            'keyword': f'{cat} 최신 뉴스 트렌드 오늘',
             'source': 'category_fill',
             'score': 10,
-            'region': 'global',
+            'region': 'KR',
             'url': '',
             '_quick_cat': cat,
         })
@@ -503,6 +458,7 @@ Examples:
         'war', 'warfare', 'invasion', 'bombing', 'airstrike', 'missile strike',
         'death toll', 'genocide', 'massacre', 'casualties', 'armed conflict',
         'military attack', 'military offensive', 'ceasefire', 'occupation',
+        '전쟁', '폭격', '공습', '미사일', '사망자', '학살', '침공', '교전', '포격',
     ]
     filtered_topics = []
     for t in topics:

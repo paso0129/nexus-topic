@@ -1,0 +1,102 @@
+name: Publish Article
+
+on:
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: 'Article slug to publish'
+        required: true
+      reindex:
+        description: 'Submit to Google Indexing API'
+        required: false
+        default: 'true'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      - name: Publish article (set published=true)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          cd backend
+          python -c "
+          from scripts.database import get_db_client
+          db = get_db_client()
+          slug = '${{ github.event.inputs.slug }}'
+          result = db.update_article(slug, {'published': True})
+          if result:
+              print(f'✓ Published: {slug}')
+          else:
+              print(f'✗ Failed to publish: {slug}')
+              exit(1)
+          "
+
+      - name: Revalidate frontend cache
+        env:
+          REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
+        run: |
+          SLUG="${{ github.event.inputs.slug }}"
+          echo "Revalidating cache for slug: $SLUG"
+          curl -s -X POST "https://www.nexustopic.com/api/revalidate" \
+            -H "Authorization: Bearer $REVALIDATION_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "{\"slug\": \"$SLUG\"}"
+
+      - name: Wait for ISR propagation
+        run: sleep 10
+
+      - name: Google Indexing API
+        if: github.event.inputs.reindex == 'true'
+        env:
+          GOOGLE_INDEXING_SA_KEY: ${{ secrets.GOOGLE_INDEXING_SA_KEY }}
+        run: |
+          cd backend
+          python -c "
+          from scripts.notify_indexing import notify_urls
+          slug = '${{ github.event.inputs.slug }}'
+          url = f'https://www.nexustopic.com/article/{slug}'
+          result = notify_urls([url])
+          print(f'Indexing result: {result}')
+          " || true
+
+      - name: Submit sitemaps
+        if: github.event.inputs.reindex == 'true'
+        env:
+          GOOGLE_INDEXING_SA_KEY: ${{ secrets.GOOGLE_INDEXING_SA_KEY }}
+        run: |
+          cd backend
+          python -m scripts.submit_sitemaps || true
+
+      - name: Notify IndexNow
+        if: github.event.inputs.reindex == 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          cd backend
+          python -m scripts.notify_search_engines || true
+
+      - name: Summary
+        run: |
+          echo "## Article Published" >> $GITHUB_STEP_SUMMARY
+          echo "- Slug: ${{ github.event.inputs.slug }}" >> $GITHUB_STEP_SUMMARY
+          echo "- URL: https://www.nexustopic.com/article/${{ github.event.inputs.slug }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Reindex: ${{ github.event.inputs.reindex }}" >> $GITHUB_STEP_SUMMARY

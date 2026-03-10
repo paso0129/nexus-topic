@@ -2,17 +2,17 @@ name: Generate Daily Articles
 
 on:
   schedule:
-    # 하루 4회, 미국 동부 시간 기준 낮 시간대 중심 (UTC)
-    - cron: '30 11 * * *'  # ~EST 06:30 + 랜덤 딜레이
-    - cron: '0 15 * * *'   # ~EST 10:00 + 랜덤 딜레이
-    - cron: '45 18 * * *'  # ~EST 13:45 + 랜덤 딜레이
-    - cron: '15 23 * * *'  # ~EST 18:15 + 랜덤 딜레이
+    # 하루 4회, 한국 시간 기준 피크타임 (UTC)
+    - cron: '0 22 * * *'   # KST 07:00 (출근 시간)
+    - cron: '0 3 * * *'    # KST 12:00 (점심)
+    - cron: '0 9 * * *'    # KST 18:00 (퇴근 시간)
+    - cron: '0 13 * * *'   # KST 22:00 (야간)
   workflow_dispatch:
     inputs:
       articles:
         description: 'Number of articles to generate'
         required: false
-        default: '2'
+        default: '1'
 
 jobs:
   generate:
@@ -53,7 +53,7 @@ jobs:
           GOOGLE_INDEXING_SA_KEY: ${{ secrets.GOOGLE_INDEXING_SA_KEY }}
         run: |
           cd backend
-          python main.py --articles ${{ github.event.inputs.articles || '2' }} || true
+          python main.py --articles ${{ github.event.inputs.articles || '1' }} || true
 
       - name: Revalidate frontend cache
         if: always()
@@ -110,4 +110,4 @@ jobs:
         run: |
           echo "## Article Generation Summary" >> $GITHUB_STEP_SUMMARY
           echo "- Date: $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
-          echo "- Articles requested: ${{ github.event.inputs.articles || '2' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Articles requested: ${{ github.event.inputs.articles || '1' }}" >> $GITHUB_STEP_SUMMARY

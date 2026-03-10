@@ -12,11 +12,6 @@ adsense:
 automation:
   # Target markets for trending topics
   target_markets:
-    - "US"
-    - "UK"
-    - "CA"
-    - "DE"
-    - "FR"
     - "KR"
 
   # Number of articles to generate per run
