@@ -121,10 +121,11 @@ def parse_expanded_response(response_text: str) -> dict:
 
 
 def count_words(html: str) -> int:
-    """Count words in HTML content."""
+    """Count words in HTML content (split by whitespace, like Korean 어절)."""
     text = re.sub(r'<[^>]+>', '', html)
-    words = re.findall(r'[\uAC00-\uD7A3]+(?:\s*[\uAC00-\uD7A3]+)*|[a-zA-Z0-9]+', text)
-    return len(words)
+    # Split by whitespace — counts Korean 어절 properly
+    words = text.split()
+    return len([w for w in words if len(w.strip()) > 0])
 
 
 def calculate_reading_time(html: str) -> int:
@@ -185,7 +186,7 @@ def main():
                 contents=prompt,
                 config=genai_types.GenerateContentConfig(
                     temperature=0.7,
-                    max_output_tokens=8192,
+                    max_output_tokens=16384,
                 ),
             )
             parsed = parse_expanded_response(response.text)
@@ -198,10 +199,14 @@ def main():
             new_wc = count_words(parsed['content'])
             reading_time = calculate_reading_time(parsed['content'])
 
-            if new_wc < 400:
-                logger.error(f"  생성된 콘텐츠가 너무 짧음: {new_wc}w")
+            if new_wc < current_wc:
+                logger.error(f"  생성된 콘텐츠가 기존보다 짧음: {new_wc}w < {current_wc}w")
                 failed += 1
                 continue
+
+            if new_wc < 500:
+                logger.warning(f"  콘텐츠가 짧지만 기존보다 나음: {new_wc}w (기존 {current_wc}w)")
+
 
             # Update DB
             update_data = {
