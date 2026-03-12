@@ -120,7 +120,7 @@ def save_article_to_database(article: Dict) -> bool:
             reading_time=article.get('reading_time', 5),
             word_count=article.get('word_count', 0),
             topic=article.get('topic', ''),
-            published=False,
+            published=True,
             featured_image=article.get('featured_image', ''),
             image_attribution=article.get('image_attribution', {}),
             author=_get_author_for_topic(article.get('topic', '')),
@@ -188,7 +188,7 @@ def save_article(
                 'topic': article.get('topic', ''),
                 'created_at': article.get('timestamp', datetime.now().isoformat()),
                 'updated_at': datetime.now().isoformat(),
-                'published': False,
+                'published': True,
                 'featured_image': article.get('featured_image', ''),
                 'image_attribution': article.get('image_attribution', {}),
                 'source_data': article.get('source_data', {})
