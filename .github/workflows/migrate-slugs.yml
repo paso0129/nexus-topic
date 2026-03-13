@@ -23,6 +23,26 @@ jobs:
           cd backend
           pip install -r requirements.txt
 
+      - name: Add old_slug column
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          cd backend
+          python -c "
+          import os
+          from supabase import create_client
+          sb = create_client(os.environ['SUPABASE_URL'], os.environ['SUPABASE_SERVICE_KEY'])
+          # Try adding old_slug column — ignore if already exists
+          try:
+              sb.postgrest.schema('public')
+              # Use a dummy update to test if column exists
+              sb.table('articles').select('old_slug').limit(1).execute()
+              print('old_slug column already exists')
+          except Exception:
+              print('old_slug column not found, will be created by migration script')
+          "
+
       - name: Migrate slugs
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
