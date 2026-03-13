@@ -97,7 +97,7 @@ def _generate_with_gemini_api(prompt: str, model_name: str = "gemini-2.5-pro") -
         contents=prompt,
         config=genai_types.GenerateContentConfig(
             temperature=0.7,
-            max_output_tokens=4096,
+            max_output_tokens=16384,
         ),
     )
     return response.text
@@ -218,6 +218,19 @@ STOP_WORDS = {
     'type', 'types', 'understanding', 'without',
     'adsbygoogle', 'window', 'push', 'pagead', 'script', 'class',
     'style', 'href', 'http', 'https', 'data', 'content', 'users',
+    # 한국어 불용어 — 조사, 어미, 접속사, 의존명사, 일반 동사/형용사
+    '있다', '없다', '하다', '되다', '이다', '않다', '받다', '보다', '가다', '오다',
+    '있는', '없는', '하는', '되는', '있을', '없을', '하고', '되고', '있고', '없고',
+    '에서', '으로', '에게', '부터', '까지', '처럼', '만큼', '대해', '통해', '위해',
+    '대한', '따른', '관련', '의한', '인한', '따라', '관한',
+    '그리고', '하지만', '그러나', '또한', '그래서', '따라서', '그런데', '왜냐하면',
+    '것이다', '것으로', '것이', '수있', '것은', '것을', '것에',
+    '이번', '최근', '현재', '올해', '지난', '당시', '이후', '이전',
+    '매우', '가장', '모든', '다른', '같은', '이런', '그런', '어떤',
+    '이를', '이에', '그를', '이와', '그의', '이의',
+    '밝혔다', '전했다', '말했다', '보였다', '나타났다', '알려졌다', '됐다',
+    '중인', '중이다', '한다', '된다', '보인다', '나온다',
+    '경우', '부분', '정도', '이상', '이하', '사이',
 }
 
 
@@ -243,11 +256,11 @@ def extract_keywords(content: str, max_keywords: int = 10) -> list:
     # Extract heading text with 3x weight
     heading_texts = re.findall(r'<h[23][^>]*>(.*?)</h[23]>', content, re.IGNORECASE)
     heading_clean = ' '.join(re.sub(r'<[^>]+>', '', h) for h in heading_texts)
-    heading_words = re.findall(r'[\uAC00-\uD7A3]{2,}|[a-z]{4,}', heading_clean.lower())
+    heading_words = re.findall(r'[\uAC00-\uD7A3]{3,}|[a-z]{4,}', heading_clean.lower())
 
     # Extract body text
     clean_text = re.sub(r'<[^>]+>', '', content)
-    body_words = re.findall(r'[\uAC00-\uD7A3]{2,}|[a-z]{4,}', clean_text.lower())
+    body_words = re.findall(r'[\uAC00-\uD7A3]{3,}|[a-z]{4,}', clean_text.lower())
 
     word_freq = {}
     for word in body_words:
