@@ -559,31 +559,65 @@ FAQ 규칙:
 
 - 카테고리: 경제, IT·테크, 글로벌 경제, 부동산, 연예, 스포츠 중 하나
 
-응답 형식:
+- 해시태그: 기사 핵심 주제를 대표하는 명사 3개 (쉼표 구분)
+  * 고유명사, 핵심 키워드만 (예: 삼성전자, 반도체, AI)
+  * 조사/동사/형용사 금지 (예: ❌ 있다, 에서, 단순한)
+
+응답 형식 (각 항목을 반드시 별도 줄에 작성):
 TITLE: [제목]
 META: [메타 설명]
 CATEGORY: [카테고리]
+TAGS: [태그1, 태그2, 태그3]
 CONTENT:
 [HTML 콘텐츠]
 """
 
 
 def _parse_response(response_text: str, topic: str) -> Dict:
-    """Parse LLM response into article dictionary."""
-    title_match = re.search(r'TITLE:\s*(.+?)(?:\n|META:)', response_text, re.IGNORECASE)
-    meta_match = re.search(r'META:\s*(.+?)(?:\n|CATEGORY:|CONTENT:)', response_text, re.IGNORECASE)
-    category_match = re.search(r'CATEGORY:\s*(.+?)(?:\n|CONTENT:)', response_text, re.IGNORECASE)
+    """Parse LLM response into article dictionary.
+
+    Handles both multi-line and single-line formats:
+      Multi-line: TITLE: ...\nMETA: ...\nCATEGORY: ...\nCONTENT:\n...
+      Single-line: TITLE: ... META: ... CATEGORY: ... CONTENT: ...
+      No CONTENT label: TITLE: ... META: ... CATEGORY: ...\n<h2>...
+    """
+    # Try extracting TITLE — stop at newline, META, or CATEGORY
+    title_match = re.search(r'TITLE:\s*(.+?)(?:\n|(?=\s*META:)|(?=\s*CATEGORY:))', response_text, re.IGNORECASE)
+    # Try extracting META — stop at newline, CATEGORY, or CONTENT
+    meta_match = re.search(r'META:\s*(.+?)(?:\n|(?=\s*CATEGORY:)|(?=\s*CONTENT:))', response_text, re.IGNORECASE)
+    # Try extracting CATEGORY — stop at newline, TAGS, CONTENT, or first HTML tag
+    category_match = re.search(r'CATEGORY:\s*(.+?)(?:\n|(?=\s*TAGS:)|(?=\s*CONTENT:)|(?=\s*<))', response_text, re.IGNORECASE)
+    # Try extracting TAGS — stop at newline, CONTENT, or first HTML tag
+    tags_match = re.search(r'TAGS:\s*(.+?)(?:\n|(?=\s*CONTENT:)|(?=\s*<))', response_text, re.IGNORECASE)
+    # Try extracting CONTENT — with or without the CONTENT: label
     content_match = re.search(r'CONTENT:\s*(.+)', response_text, re.IGNORECASE | re.DOTALL)
 
-    if not all([title_match, meta_match, content_match]):
+    # Fallback: if no CONTENT: label, grab everything after the last metadata field
+    last_meta_end = max(
+        (m.end() for m in [category_match, tags_match, meta_match] if m),
+        default=0,
+    )
+    if not content_match and last_meta_end > 0:
+        after_category = response_text[last_meta_end:]
+        # Find first HTML tag as content start
+        html_start = re.search(r'<(?:h[1-6]|p|div|section|ul|ol|blockquote)', after_category, re.IGNORECASE)
+        if html_start:
+            content_match_text = after_category[html_start.start():].strip()
+        else:
+            content_match_text = after_category.strip()
+    else:
+        content_match_text = None
+
+    if not all([title_match, meta_match]) or (not content_match and not content_match_text):
         logger.error("Failed to parse response properly")
+        # Last resort: strip any TITLE/META/CATEGORY prefix from content
+        content = re.sub(r'^TITLE:.*?(?=<)', '', response_text, flags=re.IGNORECASE | re.DOTALL).strip()
         title = topic
         meta_description = f"{topic}에 대한 심층 분석"
-        content = response_text
     else:
-        title = title_match.group(1).strip()
-        meta_description = meta_match.group(1).strip()
-        content = content_match.group(1).strip()
+        title = title_match.group(1).strip().rstrip('.')
+        meta_description = meta_match.group(1).strip().rstrip('.')
+        content = content_match.group(1).strip() if content_match else content_match_text
 
     category = 'IT·테크'
     if category_match:
@@ -595,7 +629,13 @@ def _parse_response(response_text: str, topic: str) -> Dict:
 
     word_count = len(re.sub(r'<[^>]+>', '', content).split())
     reading_time = calculate_reading_time(content)
-    keywords = extract_keywords(content)
+
+    # Use AI-generated tags if available, fallback to frequency-based extraction
+    if tags_match:
+        keywords = [t.strip() for t in tags_match.group(1).split(',') if t.strip()]
+        logger.info(f"Using AI-generated tags: {keywords}")
+    else:
+        keywords = extract_keywords(content)
 
     return {
         'title': title,
