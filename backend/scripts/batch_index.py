@@ -104,9 +104,8 @@ def main():
         logger.info(f"Added {len(static_urls)} static pages")
 
     # Add category pages
-    categories = ["it-biz", "culture", "economy", "entertainment",
-                   "gaming", "health", "policy", "science", "tech"]
-    cat_urls = [f"{SITE_URL}/category/{cat}" for cat in categories]
+    from scripts.constants import CATEGORY_SLUGS
+    cat_urls = [f"{SITE_URL}/category/{cat}" for cat in CATEGORY_SLUGS]
     update_urls.extend(cat_urls)
     logger.info(f"Added {len(cat_urls)} category pages")
 

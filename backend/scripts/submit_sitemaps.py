@@ -91,8 +91,8 @@ def _verify(headers, encoded_site):
         submitted = sm.get("contents", [{}])[0].get("submitted", "?")
         indexed = sm.get("contents", [{}])[0].get("indexed", "?")
         last_downloaded = sm.get("lastDownloaded", "never")
-        warnings_count = sm.get("warnings", 0)
-        errors_count = sm.get("errors", 0)
+        warnings_count = int(sm.get("warnings", 0))
+        errors_count = int(sm.get("errors", 0))
 
         status = "❌" if errors_count > 0 else "⚠️" if warnings_count > 0 else "✅"
         logger.info(

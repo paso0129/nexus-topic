@@ -83,12 +83,15 @@ def main():
     parser = argparse.ArgumentParser(description="Notify search engines (IndexNow + WebSub)")
     parser.add_argument("--urls", nargs="*", default=None,
                         help="Specific URLs to submit to IndexNow")
+    parser.add_argument("--recent", type=int, default=None, metavar="HOURS",
+                        help="Only submit articles created/updated in the last N hours")
     args = parser.parse_args()
 
-    # If specific URLs given, use those. Otherwise fetch all from Supabase.
+    # If specific URLs given, use those. Otherwise fetch from Supabase.
     if args.urls:
         urls = args.urls
     else:
+        from datetime import datetime, timedelta, timezone
         from supabase import create_client
 
         url = os.getenv("SUPABASE_URL")
@@ -98,18 +101,23 @@ def main():
             sys.exit(1)
 
         client = create_client(url, key)
-        resp = (
+        query = (
             client.table("articles")
             .select("slug")
             .eq("published", True)
-            .order("created_at", desc=True)
-            .execute()
         )
+
+        if args.recent:
+            cutoff = (datetime.now(timezone.utc) - timedelta(hours=args.recent)).isoformat()
+            query = query.or_(f"updated_at.gte.{cutoff},created_at.gte.{cutoff}")
+            logger.info(f"Filtering articles updated/created since {cutoff}")
+
+        resp = query.order("created_at", desc=True).execute()
         urls = [f"{SITE_URL}/article/{row['slug']}" for row in resp.data]
-        # Add static + category pages
+        # Add homepage + category pages
         urls.append(SITE_URL)
-        for cat in ["it-biz", "culture", "economy", "entertainment",
-                     "gaming", "health", "policy", "science", "security", "tech"]:
+        from scripts.constants import CATEGORY_SLUGS
+        for cat in CATEGORY_SLUGS:
             urls.append(f"{SITE_URL}/category/{cat}")
 
     logger.info(f"=== Search Engine Notifications ===")

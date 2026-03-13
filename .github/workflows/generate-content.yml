@@ -103,7 +103,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           cd backend
-          python -m scripts.notify_search_engines || true
+          python -m scripts.notify_search_engines --recent 24 || true
 
       - name: Summary
         if: always()
