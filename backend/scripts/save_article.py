@@ -16,21 +16,25 @@ from pathlib import Path
 import requests
 
 # Category-to-author mapping (must match frontend src/lib/authors.ts)
-_AUTHOR = {'name': '송민재', 'bio': '경제·IT·글로벌 트렌드를 데이터 기반으로 분석합니다.'}
-CATEGORY_AUTHOR_MAP = {
-    '경제': _AUTHOR,
-    'IT·테크': _AUTHOR,
-    '글로벌 경제': _AUTHOR,
-    '부동산': _AUTHOR,
-    '연예': _AUTHOR,
-    '스포츠': _AUTHOR,
+_AUTHORS = {
+    '송민재': {'name': '송민재', 'bio': '거시경제, 금융시장, 환율·금리 동향을 데이터 기반으로 분석합니다.'},
+    '임새봄': {'name': '임새봄', 'bio': 'K-POP, 드라마, 스포츠 산업을 비즈니스 시각으로 분석합니다.'},
+    '정상열': {'name': '정상열', 'bio': '반도체, AI, 클라우드 등 기술 산업과 부동산 시장을 분석합니다.'},
 }
-DEFAULT_AUTHOR = _AUTHOR
+CATEGORY_AUTHOR_MAP = {
+    '경제': _AUTHORS['송민재'],
+    '글로벌 경제': _AUTHORS['송민재'],
+    'IT·테크': _AUTHORS['정상열'],
+    '부동산': _AUTHORS['정상열'],
+    '연예': _AUTHORS['임새봄'],
+    '스포츠': _AUTHORS['임새봄'],
+}
+DEFAULT_AUTHOR = _AUTHORS['송민재']
 
 
 def _get_author_for_topic(topic: str) -> Dict[str, str]:
     """Return the appropriate author dict based on article topic/category."""
-    return CATEGORY_AUTHOR_MAP.get((topic or '').upper(), DEFAULT_AUTHOR)
+    return CATEGORY_AUTHOR_MAP.get(topic, DEFAULT_AUTHOR)
 
 
 # Import database client
