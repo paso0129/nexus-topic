@@ -18,16 +18,16 @@ import requests
 # Category-to-author mapping (must match frontend src/lib/authors.ts)
 _AUTHORS = {
     '송민재': {'name': '송민재', 'bio': '거시경제, 금융시장, 환율·금리 동향을 데이터 기반으로 분석합니다.'},
-    '임새봄': {'name': '임새봄', 'bio': 'K-POP, 드라마, 스포츠 산업을 비즈니스 시각으로 분석합니다.'},
-    '정상열': {'name': '정상열', 'bio': '반도체, AI, 클라우드 등 기술 산업과 부동산 시장을 분석합니다.'},
+    '임새봄': {'name': '임새봄', 'bio': '반도체, AI, 클라우드 등 IT·테크 산업을 데이터 기반으로 분석합니다.'},
+    '정상열': {'name': '정상열', 'bio': '부동산, 엔터테인먼트, 스포츠 산업을 비즈니스 시각으로 분석합니다.'},
 }
 CATEGORY_AUTHOR_MAP = {
     '경제': _AUTHORS['송민재'],
     '글로벌 경제': _AUTHORS['송민재'],
-    'IT·테크': _AUTHORS['정상열'],
+    'IT·테크': _AUTHORS['임새봄'],
     '부동산': _AUTHORS['정상열'],
-    '연예': _AUTHORS['임새봄'],
-    '스포츠': _AUTHORS['임새봄'],
+    '연예': _AUTHORS['정상열'],
+    '스포츠': _AUTHORS['정상열'],
 }
 DEFAULT_AUTHOR = _AUTHORS['송민재']
 
@@ -55,33 +55,35 @@ logger = logging.getLogger(__name__)
 
 def create_slug(title: str) -> str:
     """
-    Create URL-friendly slug from title.
-    Handles Korean titles via unidecode transliteration.
+    Create a sequential numeric slug by finding the max existing slug + 1.
+    Falls back to timestamp-based slug if DB query fails.
 
     Args:
-        title: Article title
+        title: Article title (unused, kept for API compatibility)
 
     Returns:
-        URL slug
+        Numeric slug string (e.g. '1042')
     """
-    from unidecode import unidecode
+    try:
+        db = get_db_client()
+        # Find the highest numeric slug
+        result = db.client.table('articles') \
+            .select('slug') \
+            .order('slug', desc=True) \
+            .limit(100) \
+            .execute()
 
-    # Transliterate Korean/Unicode to ASCII
-    slug = unidecode(title).lower()
+        max_num = 1000  # Starting base
+        for row in (result.data or []):
+            s = row.get('slug', '')
+            if s.isdigit():
+                max_num = max(max_num, int(s))
 
-    # Remove special characters
-    slug = re.sub(r'[^a-z0-9\s-]', '', slug)
-
-    # Replace spaces with hyphens
-    slug = re.sub(r'\s+', '-', slug)
-
-    # Remove consecutive hyphens
-    slug = re.sub(r'-+', '-', slug)
-
-    # Remove leading/trailing hyphens
-    slug = slug.strip('-')
-
-    return slug
+        return str(max_num + 1)
+    except Exception as e:
+        logger.warning(f"Failed to query max slug, using timestamp: {e}")
+        import time
+        return str(int(time.time()))
 
 
 def save_article_to_database(article: Dict) -> bool:
