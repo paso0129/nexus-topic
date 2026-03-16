@@ -84,6 +84,8 @@ EXPANSION RULES:
 5. Do NOT add "Editor's Take:" or "My Prediction:" labels — weave opinions naturally
 6. VARY sentence length — mix short punchy sentences with longer analytical ones
 7. The expanded article must be {MIN_WORDS}-{MAX_WORDS} words (excluding FAQ)
+8. 문체: 반드시 해라체(~다, ~이다, ~했다)로 통일. 합쇼체(~습니다) 절대 금지
+9. 할루시네이션 금지: 확인되지 않은 수치, 인용, 사실을 만들지 말 것. 불확실하면 "약", "추정" 등 헤지 표현 사용
 {faq_instruction}
 CRITICAL: Return ONLY the complete HTML content (all existing + new sections merged together). No TITLE/META/CATEGORY headers. Start directly with the first HTML tag.
 
@@ -185,10 +187,16 @@ def main():
                 skipped += 1
                 continue
 
+            # Re-extract keywords from expanded content
+            from scripts.generate_content import extract_keywords
+            new_keywords = extract_keywords(expanded_content, max_keywords=5)
+            logger.info(f"  New keywords: {new_keywords}")
+
             # Update DB
             result = db.update_article(slug, {
                 'content': expanded_content,
                 'word_count': new_wc,
+                'keywords': new_keywords,
             })
 
             if result:

@@ -60,9 +60,15 @@ def _build_image_prompt(article: Dict) -> str:
         f"Requirements:\n"
         f"- Landscape orientation (16:9 aspect ratio)\n"
         f"- Clean, professional editorial style suitable for a news website\n"
-        f"- No text, watermarks, logos, or UI elements in the image\n"
         f"- Vibrant but natural colors\n"
-        f"- Focus on the core visual concept of the article topic"
+        f"- Focus on the core visual concept of the article topic\n\n"
+        f"CRITICAL - ABSOLUTELY NO TEXT IN THE IMAGE:\n"
+        f"- Do NOT include any text, letters, numbers, words, or characters in ANY language\n"
+        f"- Do NOT include Korean (한글), English, Chinese, Japanese, or any other script\n"
+        f"- Do NOT include labels, signs, banners, headlines, captions, watermarks, or logos\n"
+        f"- Do NOT include any UI elements, buttons, or overlays\n"
+        f"- The image must be purely visual/photographic with ZERO readable text\n"
+        f"- If the topic involves text-heavy subjects (newspapers, screens, etc.), show them blurred or from far away so no text is readable"
     )
 
 
