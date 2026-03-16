@@ -74,9 +74,18 @@ def main():
             skipped.append((slug, f'not Korean ({korean_chars} chars)'))
             continue
 
-        # Skip if no title
+        # Skip if no title or title looks broken
         if not title:
             skipped.append((slug, 'no title'))
+            continue
+        # Skip if title is too short (likely incomplete) or not Korean
+        title_korean = len(re.findall(r'[\uAC00-\uD7A3]', title))
+        if title_korean < 5 or len(title) < 10:
+            skipped.append((slug, f'bad title: "{title[:40]}"'))
+            continue
+        # Skip if title contains non-Korean/English characters (Russian, etc.)
+        if re.search(r'[\u0400-\u04FF]', title):
+            skipped.append((slug, f'non-Korean title: "{title[:40]}"'))
             continue
 
         # Check if content is truncated (cut off mid-sentence/tag)
