@@ -2,10 +2,12 @@ name: Generate Daily Articles
 
 on:
   schedule:
-    # 하루 4회, 한국 시간 기준 피크타임 (UTC)
-    - cron: '0 22 * * *'   # KST 07:00 (출근 시간)
+    # 하루 6회, 한국 시간 기준 (UTC)
+    - cron: '0 22 * * *'   # KST 07:00 (출근)
+    - cron: '0 0 * * *'    # KST 09:00 (오전)
     - cron: '0 3 * * *'    # KST 12:00 (점심)
-    - cron: '0 9 * * *'    # KST 18:00 (퇴근 시간)
+    - cron: '0 6 * * *'    # KST 15:00 (오후)
+    - cron: '0 9 * * *'    # KST 18:00 (퇴근)
     - cron: '0 13 * * *'   # KST 22:00 (야간)
   workflow_dispatch:
     inputs:
@@ -53,7 +55,7 @@ jobs:
           GOOGLE_INDEXING_SA_KEY: ${{ secrets.GOOGLE_INDEXING_SA_KEY }}
         run: |
           cd backend
-          python main.py --articles ${{ github.event.inputs.articles || '1' }} || true
+          python main.py --articles ${{ github.event.inputs.articles || '2' }} || true
 
       - name: Revalidate frontend cache
         if: always()
