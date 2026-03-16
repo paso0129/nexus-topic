@@ -1,7 +1,9 @@
 """
-Regenerate article keywords using AI.
+Regenerate article keywords and category using AI.
 
-Sends article title + content to Gemini and asks for 3 noun-only keywords.
+Sends article title + content to Gemini and asks for:
+- 3 noun-only keywords
+- Correct category from 6 options
 Updates DB and triggers ISR revalidation.
 """
 
@@ -31,29 +33,33 @@ except ImportError:
 
 from scripts.database import DatabaseClient
 
+VALID_CATEGORIES = ['경제', 'IT·테크', '글로벌 경제', '부동산', '연예', '스포츠']
 
-def _generate_keywords(title: str, content: str) -> list:
-    """Ask Gemini to extract 3 noun-only keywords from article."""
+
+def _generate_keywords_and_category(title: str, content: str) -> dict:
+    """Ask Gemini to extract 3 keywords + correct category from article."""
     api_key = os.getenv('GOOGLE_API_KEY')
     if not api_key or not genai:
         raise RuntimeError("Gemini API not available")
 
     clean_text = re.sub(r'<[^>]+>', '', content)
-    # Truncate to first 2000 chars to save tokens
     preview = clean_text[:2000]
 
     prompt = (
-        f"다음 기사의 핵심 주제를 대표하는 고유명사/키워드를 정확히 3개만 추출하세요.\n\n"
+        f"다음 기사를 읽고 두 가지를 답하세요.\n\n"
         f"제목: {title}\n"
         f"본문 일부: {preview}\n\n"
-        f"규칙:\n"
-        f"- 반드시 고유명사 또는 핵심 주제 명사만 (예: 삼성전자, 반도체, AI)\n"
-        f"- 동사 금지 (❌ 있다, 하다, 되다)\n"
-        f"- 형용사 금지 (❌ 단순한, 새로운, 숨겨진)\n"
-        f"- 조사/부사 금지 (❌ 에서, 으로, 달러는, 어떻게)\n"
-        f"- 소유격/조사 붙은 형태 금지 (❌ 대우건설의, 트위치의, 시장의)\n\n"
-        f"응답 형식 (이것만 출력):\n"
-        f"키워드1, 키워드2, 키워드3"
+        f"1. 카테고리: 아래 6개 중 가장 적합한 하나를 골라주세요\n"
+        f"   경제, IT·테크, 글로벌 경제, 부동산, 연예, 스포츠\n\n"
+        f"2. 키워드: 기사 핵심 주제를 대표하는 고유명사/명사 정확히 3개\n"
+        f"   - 고유명사 또는 핵심 주제 명사만 (예: 삼성전자, 반도체, AI)\n"
+        f"   - 동사 금지 (❌ 있다, 하다, 되다)\n"
+        f"   - 형용사 금지 (❌ 단순한, 새로운, 숨겨진)\n"
+        f"   - 조사/부사 금지 (❌ 에서, 으로, 달러는, 어떻게)\n"
+        f"   - 소유격 금지 (❌ 대우건설의, 트위치의)\n\n"
+        f"응답 형식 (정확히 이 형식으로만 출력):\n"
+        f"CATEGORY: 카테고리\n"
+        f"TAGS: 키워드1, 키워드2, 키워드3"
     )
 
     client = genai.Client(api_key=api_key)
@@ -66,8 +72,22 @@ def _generate_keywords(title: str, content: str) -> list:
         ),
     )
     raw = response.text.strip()
-    keywords = [k.strip() for k in raw.split(',') if k.strip()]
-    return keywords[:3]
+
+    # Parse category
+    cat_match = re.search(r'CATEGORY:\s*(.+)', raw)
+    category = None
+    if cat_match:
+        cat = cat_match.group(1).strip()
+        if cat in VALID_CATEGORIES:
+            category = cat
+
+    # Parse keywords
+    tags_match = re.search(r'TAGS:\s*(.+)', raw)
+    keywords = []
+    if tags_match:
+        keywords = [k.strip() for k in tags_match.group(1).split(',') if k.strip()][:3]
+
+    return {'keywords': keywords, 'category': category}
 
 
 def _revalidate_slug(slug: str):
@@ -105,21 +125,32 @@ def main():
         title = article.get('title', '')
         content = article.get('content', '')
         old_kw = article.get('keywords', [])
+        old_cat = article.get('topic', '')
 
         logger.info(f"[{i+1}/{len(articles)}] {title[:50]}...")
-        logger.info(f"  Old: {old_kw}")
+        logger.info(f"  Old keywords: {old_kw}")
+        logger.info(f"  Old category: {old_cat}")
 
         try:
-            new_kw = _generate_keywords(title, content)
-            logger.info(f"  New: {new_kw}")
+            result = _generate_keywords_and_category(title, content)
+            new_kw = result['keywords']
+            new_cat = result['category']
+
+            logger.info(f"  New keywords: {new_kw}")
+            logger.info(f"  New category: {new_cat}")
 
             if not new_kw:
                 logger.warning(f"  SKIP: No keywords generated")
                 failed += 1
                 continue
 
-            result = db.update_article(slug, {'keywords': new_kw})
-            if result:
+            update_data = {'keywords': new_kw}
+            if new_cat and new_cat != old_cat:
+                update_data['topic'] = new_cat
+                logger.info(f"  Category changed: {old_cat} → {new_cat}")
+
+            db_result = db.update_article(slug, update_data)
+            if db_result:
                 success += 1
                 logger.info(f"  ✅ Updated")
                 _revalidate_slug(slug)
@@ -138,7 +169,7 @@ def main():
         # Rate limit
         time.sleep(2)
 
-    logger.info(f"\n=== Keyword Regeneration Complete ===")
+    logger.info(f"\n=== Keyword & Category Regeneration Complete ===")
     logger.info(f"Success: {success}, Failed: {failed}")
 
 
