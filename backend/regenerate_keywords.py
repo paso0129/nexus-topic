@@ -72,20 +72,32 @@ def _generate_keywords_and_category(title: str, content: str) -> dict:
         ),
     )
     raw = response.text.strip()
+    logger.info(f"  Raw AI response: {raw}")
 
-    # Parse category
-    cat_match = re.search(r'CATEGORY:\s*(.+)', raw)
+    # Parse category - flexible matching
+    cat_match = re.search(r'(?:CATEGORY|카테고리)[:\s]*(.+)', raw, re.IGNORECASE)
     category = None
     if cat_match:
-        cat = cat_match.group(1).strip()
-        if cat in VALID_CATEGORIES:
-            category = cat
+        cat = cat_match.group(1).strip().rstrip('.')
+        # Fuzzy match category names
+        for valid_cat in VALID_CATEGORIES:
+            if valid_cat in cat or cat in valid_cat:
+                category = valid_cat
+                break
 
-    # Parse keywords
-    tags_match = re.search(r'TAGS:\s*(.+)', raw)
+    # Parse keywords - flexible matching
+    tags_match = re.search(r'(?:TAGS|키워드|태그)[:\s]*(.+)', raw, re.IGNORECASE)
     keywords = []
     if tags_match:
-        keywords = [k.strip() for k in tags_match.group(1).split(',') if k.strip()][:3]
+        raw_tags = tags_match.group(1).strip()
+        keywords = [k.strip().strip('"\'') for k in raw_tags.split(',') if k.strip()][:3]
+    else:
+        # Fallback: if no TAGS label, try last line as comma-separated keywords
+        lines = raw.strip().split('\n')
+        if len(lines) >= 2:
+            last_line = lines[-1].strip()
+            if ',' in last_line and not last_line.startswith('CATEGORY'):
+                keywords = [k.strip().strip('"\'') for k in last_line.split(',') if k.strip()][:3]
 
     return {'keywords': keywords, 'category': category}
 
