@@ -87,7 +87,13 @@ EXPANSION RULES:
 8. 문체: 반드시 해라체(~다, ~이다, ~했다)로 통일. 합쇼체(~습니다) 절대 금지
 9. 할루시네이션 금지: 확인되지 않은 수치, 인용, 사실을 만들지 말 것. 불확실하면 "약", "추정" 등 헤지 표현 사용
 {faq_instruction}
-CRITICAL: Return ONLY the complete HTML content (all existing + new sections merged together). No TITLE/META/CATEGORY headers. Start directly with the first HTML tag.
+CRITICAL: Return the complete HTML content (all existing + new sections merged together). Start directly with the first HTML tag.
+
+At the very end of your response, after all HTML content, add this line:
+TAGS: [고유명사 키워드1], [고유명사 키워드2], [고유명사 키워드3]
+- 기사 핵심 주제를 대표하는 고유명사/핵심 키워드 정확히 3개
+- 반드시 명사만 (예: 삼성전자, 반도체, AI)
+- 동사/형용사/조사/부사 절대 금지 (❌ 있다, 단순한, 달러는, 어떻게)
 
 Format: HTML only (h2, h3, p, ul, ol, strong, em, blockquote, a). No <html>/<head>/<body> tags."""
 
@@ -173,6 +179,15 @@ def main():
             expanded_content = re.sub(r'^```html?\s*\n?', '', expanded_content.strip())
             expanded_content = re.sub(r'\n?```\s*$', '', expanded_content.strip())
 
+            # Extract AI-generated tags if present
+            tags_match = re.search(r'TAGS:\s*(.+)', expanded_content)
+            ai_keywords = None
+            if tags_match:
+                ai_keywords = [t.strip() for t in tags_match.group(1).split(',') if t.strip()]
+                # Remove TAGS line from content
+                expanded_content = expanded_content[:tags_match.start()].strip()
+                logger.info(f"  AI keywords: {ai_keywords}")
+
             new_wc = count_words(expanded_content)
             logger.info(f"  Expanded: {old_wc} → {new_wc} words")
 
@@ -187,17 +202,14 @@ def main():
                 skipped += 1
                 continue
 
-            # Re-extract keywords from expanded content
-            from scripts.generate_content import extract_keywords
-            new_keywords = extract_keywords(expanded_content, max_keywords=5)
-            logger.info(f"  New keywords: {new_keywords}")
-
             # Update DB
-            result = db.update_article(slug, {
+            update_data = {
                 'content': expanded_content,
                 'word_count': new_wc,
-                'keywords': new_keywords,
-            })
+            }
+            if ai_keywords:
+                update_data['keywords'] = ai_keywords
+            result = db.update_article(slug, update_data)
 
             if result:
                 success += 1
