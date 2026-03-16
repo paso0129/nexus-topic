@@ -52,11 +52,10 @@ def _generate_keywords_and_category(title: str, content: str) -> dict:
         f"1. 카테고리: 아래 6개 중 가장 적합한 하나를 골라주세요\n"
         f"   경제, IT·테크, 글로벌 경제, 부동산, 연예, 스포츠\n\n"
         f"2. 키워드: 기사 핵심 주제를 대표하는 고유명사/명사 정확히 3개\n"
-        f"   - 고유명사 또는 핵심 주제 명사만 (예: 삼성전자, 반도체, AI)\n"
-        f"   - 동사 금지 (❌ 있다, 하다, 되다)\n"
-        f"   - 형용사 금지 (❌ 단순한, 새로운, 숨겨진)\n"
-        f"   - 조사/부사 금지 (❌ 에서, 으로, 달러는, 어떻게)\n"
-        f"   - 소유격 금지 (❌ 대우건설의, 트위치의)\n\n"
+        f"   - 반드시 완전한 단어 (2글자 이상). 절대 단어를 자르지 마세요\n"
+        f"   - 고유명사 또는 핵심 주제 명사만\n"
+        f"   - ✅ 좋은 예: 대우건설, 주가, 성장동력 / 비트코인, 암호화폐, 투자\n"
+        f"   - ❌ 나쁜 예: 주, 건, 비트코 (단어가 잘림) / 있다, 새로운, 에서 (동사/형용사/조사)\n\n"
         f"응답 형식 (반드시 두 줄 모두 출력):\n"
         f"TAGS: 키워드1, 키워드2, 키워드3\n"
         f"CATEGORY: 카테고리"
@@ -90,14 +89,14 @@ def _generate_keywords_and_category(title: str, content: str) -> dict:
     keywords = []
     if tags_match:
         raw_tags = tags_match.group(1).strip()
-        keywords = [k.strip().strip('"\'') for k in raw_tags.split(',') if k.strip()][:3]
+        keywords = [k.strip().strip('"\'[]') for k in raw_tags.split(',') if len(k.strip().strip('"\'[]')) >= 2][:3]
     else:
         # Fallback: if no TAGS label, try last line as comma-separated keywords
         lines = raw.strip().split('\n')
         if len(lines) >= 2:
             last_line = lines[-1].strip()
             if ',' in last_line and not last_line.startswith('CATEGORY'):
-                keywords = [k.strip().strip('"\'') for k in last_line.split(',') if k.strip()][:3]
+                keywords = [k.strip().strip('"\'[]') for k in last_line.split(',') if len(k.strip().strip('"\'[]')) >= 2][:3]
 
     return {'keywords': keywords, 'category': category}
 

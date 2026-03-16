@@ -670,7 +670,7 @@ def _parse_response(response_text: str, topic: str) -> Dict:
     # Use AI-generated tags if available, fallback to frequency-based extraction
     if tags_match:
         raw_tags = tags_match.group(1).strip().strip('[]')
-        keywords = [t.strip() for t in raw_tags.split(',') if t.strip()]
+        keywords = [t.strip() for t in raw_tags.split(',') if len(t.strip()) >= 2]
         logger.info(f"Using AI-generated tags: {keywords}")
     else:
         keywords = extract_keywords(content)
