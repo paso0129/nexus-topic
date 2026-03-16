@@ -57,9 +57,9 @@ def _generate_keywords_and_category(title: str, content: str) -> dict:
         f"   - 형용사 금지 (❌ 단순한, 새로운, 숨겨진)\n"
         f"   - 조사/부사 금지 (❌ 에서, 으로, 달러는, 어떻게)\n"
         f"   - 소유격 금지 (❌ 대우건설의, 트위치의)\n\n"
-        f"응답 형식 (정확히 이 형식으로만 출력):\n"
-        f"CATEGORY: 카테고리\n"
-        f"TAGS: 키워드1, 키워드2, 키워드3"
+        f"응답 형식 (반드시 두 줄 모두 출력):\n"
+        f"TAGS: 키워드1, 키워드2, 키워드3\n"
+        f"CATEGORY: 카테고리"
     )
 
     client = genai.Client(api_key=api_key)
@@ -68,7 +68,7 @@ def _generate_keywords_and_category(title: str, content: str) -> dict:
         contents=prompt,
         config=genai_types.GenerateContentConfig(
             temperature=0.2,
-            max_output_tokens=100,
+            max_output_tokens=256,
         ),
     )
     raw = response.text.strip()
