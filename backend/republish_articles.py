@@ -79,6 +79,26 @@ def main():
             skipped.append((slug, 'no title'))
             continue
 
+        # Check if content is truncated (cut off mid-sentence/tag)
+        content_truncated = False
+        clean_content = content.strip()
+        # Check for unclosed HTML tags
+        open_tags = len(re.findall(r'<(h[23]|p|ul|ol|li|blockquote|strong|em)\b', clean_content))
+        close_tags = len(re.findall(r'</(h[23]|p|ul|ol|li|blockquote|strong|em)>', clean_content))
+        if open_tags > 0 and abs(open_tags - close_tags) > 3:
+            content_truncated = True
+        # Check if content ends abruptly (no closing tag, mid-sentence)
+        if clean_content and not clean_content.rstrip().endswith('>') and not clean_content.rstrip().endswith('.') and not clean_content.rstrip().endswith('다'):
+            content_truncated = True
+        # Check word count (too short = likely truncated)
+        word_count = len(re.sub(r'<[^>]+>', '', clean_content).split())
+        if word_count < 300:
+            content_truncated = True
+
+        if content_truncated:
+            skipped.append((slug, f'content truncated (words={word_count}, tags open={open_tags} close={close_tags})'))
+            continue
+
         issues = []
         if not keywords or len(keywords) < 2:
             issues.append('needs keywords')
