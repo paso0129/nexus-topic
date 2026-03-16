@@ -256,11 +256,11 @@ def extract_keywords(content: str, max_keywords: int = 10) -> list:
     # Extract heading text with 3x weight
     heading_texts = re.findall(r'<h[23][^>]*>(.*?)</h[23]>', content, re.IGNORECASE)
     heading_clean = ' '.join(re.sub(r'<[^>]+>', '', h) for h in heading_texts)
-    heading_words = re.findall(r'[\uAC00-\uD7A3]{3,}|[a-z]{4,}', heading_clean.lower())
+    heading_words = re.findall(r'[\uAC00-\uD7A3]{2,}|[a-zA-Z]{4,}', heading_clean.lower())
 
     # Extract body text
     clean_text = re.sub(r'<[^>]+>', '', content)
-    body_words = re.findall(r'[\uAC00-\uD7A3]{3,}|[a-z]{4,}', clean_text.lower())
+    body_words = re.findall(r'[\uAC00-\uD7A3]{2,}|[a-zA-Z]{4,}', clean_text.lower())
 
     word_freq = {}
     for word in body_words:
@@ -669,7 +669,8 @@ def _parse_response(response_text: str, topic: str) -> Dict:
 
     # Use AI-generated tags if available, fallback to frequency-based extraction
     if tags_match:
-        keywords = [t.strip() for t in tags_match.group(1).split(',') if t.strip()]
+        raw_tags = tags_match.group(1).strip().strip('[]')
+        keywords = [t.strip() for t in raw_tags.split(',') if t.strip()]
         logger.info(f"Using AI-generated tags: {keywords}")
     else:
         keywords = extract_keywords(content)
