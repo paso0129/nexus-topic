@@ -102,24 +102,30 @@ def _generate_keywords_and_category(title: str, content: str) -> dict:
     return {'keywords': keywords, 'category': category}
 
 
-def _revalidate_slug(slug: str):
-    """Revalidate ISR cache for a specific article."""
+def _revalidate(slug: str = "", all_articles: bool = False):
+    """Revalidate ISR cache."""
     secret = os.getenv('REVALIDATION_SECRET', '')
     if not secret:
         return
     try:
+        payload = {}
+        if slug:
+            payload["slug"] = slug
+        if all_articles:
+            payload["all_articles"] = True
         resp = http_requests.post(
             "https://www.nexustopic.com/api/revalidate",
             headers={
                 "Authorization": f"Bearer {secret}",
                 "Content-Type": "application/json",
             },
-            json={"paths": [f"/article/{slug}"]},
+            json=payload,
             timeout=10,
         )
-        logger.info(f"  Revalidated /article/{slug}: {resp.status_code}")
+        label = f"/article/{slug}" if slug else "all articles"
+        logger.info(f"  Revalidated {label}: {resp.status_code}")
     except Exception as e:
-        logger.warning(f"  Revalidation failed for {slug}: {e}")
+        logger.warning(f"  Revalidation failed: {e}")
 
 
 def main():
@@ -165,7 +171,7 @@ def main():
             if db_result:
                 success += 1
                 logger.info(f"  ✅ Updated")
-                _revalidate_slug(slug)
+                _revalidate(slug=slug)
             else:
                 failed += 1
                 logger.error(f"  ❌ DB update failed")
@@ -183,6 +189,10 @@ def main():
 
     logger.info(f"\n=== Keyword & Category Regeneration Complete ===")
     logger.info(f"Success: {success}, Failed: {failed}")
+
+    if success > 0:
+        logger.info("Revalidating all pages...")
+        _revalidate(all_articles=True)
 
 
 if __name__ == '__main__':
