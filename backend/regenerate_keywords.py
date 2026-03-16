@@ -67,7 +67,8 @@ def _generate_keywords_and_category(title: str, content: str) -> dict:
         contents=prompt,
         config=genai_types.GenerateContentConfig(
             temperature=0.2,
-            max_output_tokens=256,
+            max_output_tokens=2048,
+            thinking_config=genai_types.ThinkingConfig(thinking_budget=0),
         ),
     )
     raw = response.text.strip()
