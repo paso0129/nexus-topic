@@ -54,7 +54,7 @@ jobs:
           curl -s -X POST "https://www.nexustopic.com/api/revalidate" \
             -H "Authorization: Bearer $REVALIDATION_SECRET" \
             -H "Content-Type: application/json" \
-            -d "{\"slug\": \"$SLUG\"}"
+            -d "{\"slug\": \"$SLUG\", \"all_articles\": true}"
 
       - name: Wait for ISR propagation
         run: sleep 10
