@@ -642,7 +642,7 @@ HTML 앵커 태그 사용: <a href="URL" target="_blank" rel="noopener noreferre
 저자 정체성 (글 전체에서 이 캐릭터 유지):
 {persona_voice}
 
-한국 25-45세 직장인·투자자를 위해 씁니다.
+한국 25-45세 성인 독자를 위해 씁니다. 카테고리에 맞는 톤으로 작성하세요 — 모든 기사를 경제/투자/코스피와 연결할 필요 없습니다.
 {category_guide_section}
 
 핵심 원칙 — AI 티가 나면 안 된다:
@@ -843,7 +843,7 @@ def generate_article(
     topic: str,
     min_words: int = 500,
     max_words: int = 700,
-    target_audience: str = "한국 25-45세 직장인·투자자",
+    target_audience: str = "한국 25-45세 성인 독자",
     existing_articles: list = None,
     source_url: str = None,
     author_name: str = None,
