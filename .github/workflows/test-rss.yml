@@ -1,0 +1,48 @@
+name: Test RSS Feeds
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Korean RSS feeds from GitHub Actions
+        run: |
+          echo "=== SBS 인기뉴스 ==="
+          curl -sL "https://news.sbs.co.kr/news/TopicRssFeed.do?plink=RSSREADER" \
+            -H "User-Agent: Mozilla/5.0 (compatible; NexusTopic/1.0)" \
+            -o /tmp/sbs.xml -w "HTTP %{http_code}, size %{size_download}\n"
+          head -5 /tmp/sbs.xml
+          grep -c '<item>' /tmp/sbs.xml || echo "0 items"
+          echo ""
+
+          echo "=== 한경 경제 ==="
+          curl -sL "https://www.hankyung.com/feed/economy" \
+            -H "User-Agent: Mozilla/5.0 (compatible; NexusTopic/1.0)" \
+            -o /tmp/hankyung.xml -w "HTTP %{http_code}, size %{size_download}\n"
+          head -5 /tmp/hankyung.xml
+          grep -c '<item>' /tmp/hankyung.xml || echo "0 items"
+          echo ""
+
+          echo "=== 한경 경제 (no custom UA) ==="
+          curl -sL "https://www.hankyung.com/feed/economy" \
+            -o /tmp/hankyung2.xml -w "HTTP %{http_code}, size %{size_download}\n"
+          head -5 /tmp/hankyung2.xml
+          grep -c '<item>' /tmp/hankyung2.xml || echo "0 items"
+          echo ""
+
+          echo "=== 전자신문 인기 ==="
+          curl -sL "http://rss.etnews.com/Section903.xml" \
+            -H "User-Agent: Mozilla/5.0 (compatible; NexusTopic/1.0)" \
+            -o /tmp/etnews.xml -w "HTTP %{http_code}, size %{size_download}\n"
+          head -5 /tmp/etnews.xml
+          grep -c '<item>' /tmp/etnews.xml || echo "0 items"
+          echo ""
+
+          echo "=== TechCrunch ==="
+          curl -sL "https://techcrunch.com/feed/" \
+            -H "User-Agent: Mozilla/5.0 (compatible; NexusTopic/1.0)" \
+            -o /tmp/tc.xml -w "HTTP %{http_code}, size %{size_download}\n"
+          head -3 /tmp/tc.xml
+          grep -c '<item>' /tmp/tc.xml || echo "0 items"
