@@ -23,6 +23,11 @@ except ImportError:
     genai = None
     genai_types = None
 
+try:
+    import anthropic
+except ImportError:
+    anthropic = None
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -689,11 +694,12 @@ HTML 앵커 태그 사용: <a href="URL" target="_blank" rel="noopener noreferre
 - 중요: "에디터 의견:", "전망:" 같은 라벨 사용 금지 — 의견과 예측을 본문에 자연스럽게 녹이기
 
 사실 확인 원칙 (위반 시 기사 전체가 무가치해짐 — 최우선 준수):
-- 존재하지 않는 인물, 기업, 브랜드, 법률, 정책을 절대 만들어내지 말 것
-  * 실존 여부가 불확실한 이름은 사용하지 말고, 일반적 표현("업계 관계자", "한 분석가")으로 대체
-  * 특히 영어 이름의 가상 인물(예: Chase Infiniti, John Smith 등)을 만들어 인용하는 것은 절대 금지
+- 개인 이름을 절대 사용하지 말 것. 전문가, 애널리스트, 교수, CEO 등 어떤 인물의 이름도 기사에 넣지 마세요.
+  * "업계 관계자는", "한 증권사 애널리스트는", "현지 매체에 따르면" 등 익명 표현만 사용
+  * "김XX 교수", "박XX 연구원" 같은 형태도 금지 — 이름 자체를 쓰지 마세요
+  * 유일한 예외: 대통령, 장관 등 공직자 또는 기업 CEO처럼 누구나 아는 공인만 실명 사용 가능
 - 확인되지 않은 수치, 인용, 투자 금액을 절대 만들어내지 말 것
-- 특정 인물의 발언은 실제 보도된 것만 기술 — 출처 없는 인용문 금지
+- 직접 인용문("..."이라고 말했다)은 실제 보도된 것만 사용 — 인용문을 만들어내지 말 것
 - "~억 원 투자", "~% 증가" 같은 구체적 수치는 실제 데이터만 사용
 - 확인 불가한 정보는 생략하거나 "보도에 따르면", "시장에서는 ~로 추정" 등 출처 명시
 - 금리, 환율, 주가, 물가 등 거시경제 수치는 반드시 아래 제공된 실시간 금융 데이터 기준으로 작성
@@ -914,6 +920,108 @@ def generate_article(
     return {}
 
 
+def _factcheck_and_fix_with_claude(article: Dict) -> Dict:
+    """
+    Claude Haiku로 기사 팩트체크 + 할루시네이션 수정.
+    - 가상 인물/기업 → 익명 표현으로 교체
+    - 잘못된 수치 → 제거 또는 헤지 표현으로 교체
+    - 존재하지 않는 제품/기능 → 제거
+    수정된 article dict를 반환.
+    """
+    api_key = os.getenv('ANTHROPIC_API_KEY')
+    if not api_key or not anthropic:
+        logger.warning("Claude API not available, skipping factcheck")
+        return article
+
+    title = article.get('title', '')
+    content = article.get('content', '')
+    if not content:
+        return article
+
+    prompt = f"""다음 한국어 뉴스 기사를 팩트체크하고 문제가 있으면 수정해주세요.
+
+제목: {title}
+
+본문 (HTML):
+{content}
+
+검수 규칙:
+1. 가상 인물 감지: 실존 여부가 불확실한 인물 이름이 있으면, 이름을 제거하고 "업계 관계자는", "한 애널리스트는" 등 익명 표현으로 교체
+   - 대통령, 장관, 유명 CEO 등 누구나 아는 공인은 유지
+   - "김XX 교수", "박XX 연구원" 같은 이름은 의심 → 익명화
+2. 잘못된 수치: 명백히 틀린 가격/수치가 있으면 제거하거나 "약 ~원대" 같은 헤지 표현으로 교체
+3. 존재하지 않는 제품/기능/칩셋: 미출시 또는 존재하지 않는 스펙이 사실처럼 서술되어 있으면 해당 문장 제거
+4. 억지 연결: 서로 관계없는 주제가 억지로 엮여있으면 (예: 운전면허+코스피) 관련 없는 부분 제거
+5. 카테고리: 기사 내용에 맞는 카테고리를 판단 (경제/IT·테크/글로벌 경제/정치/사회/글로벌 사회/부동산/연예/스포츠)
+
+응답 형식 (반드시 지킬 것):
+TITLE: 수정된 제목 (수정 불필요하면 원본 그대로)
+CATEGORY: 카테고리
+ISSUES: 발견된 문제 요약 (없으면 "없음")
+CONTENT:
+수정된 HTML 본문 (수정 불필요하면 원본 그대로)"""
+
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=4096,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = response.content[0].text.strip()
+        logger.info(f"  Claude factcheck response length: {len(raw)}")
+
+        # Parse response
+        title_match = re.search(r'TITLE:\s*(.+?)(?:\n|$)', raw)
+        cat_match = re.search(r'CATEGORY:\s*(.+?)(?:\n|$)', raw)
+        issues_match = re.search(r'ISSUES:\s*(.+?)(?:\nCONTENT:|\n\n)', raw, re.DOTALL)
+        content_match = re.search(r'CONTENT:\s*\n(.+)', raw, re.DOTALL)
+
+        issues = issues_match.group(1).strip() if issues_match else '파싱 실패'
+        logger.info(f"  Claude issues: {issues[:100]}")
+
+        if issues.strip() == '없음':
+            logger.info(f"  Claude: No issues found, keeping original")
+            # Still update category if Claude suggests different
+            if cat_match:
+                new_cat = cat_match.group(1).strip()
+                for valid_cat in ['경제', 'IT·테크', '글로벌 경제', '정치', '사회', '글로벌 사회', '부동산', '연예', '스포츠']:
+                    if valid_cat in new_cat:
+                        article['topic'] = valid_cat
+                        break
+            return article
+
+        # Apply fixes
+        if title_match:
+            new_title = title_match.group(1).strip()
+            if new_title and new_title != title:
+                logger.info(f"  Claude fixed title: {title[:30]} → {new_title[:30]}")
+                article['title'] = new_title
+
+        if cat_match:
+            new_cat = cat_match.group(1).strip()
+            for valid_cat in ['경제', 'IT·테크', '글로벌 경제', '정치', '사회', '글로벌 사회', '부동산', '연예', '스포츠']:
+                if valid_cat in new_cat:
+                    if valid_cat != article.get('topic'):
+                        logger.info(f"  Claude fixed category: {article.get('topic')} → {valid_cat}")
+                    article['topic'] = valid_cat
+                    break
+
+        if content_match:
+            new_content = content_match.group(1).strip()
+            if new_content and len(new_content) > 200:
+                article['content'] = new_content
+                article['word_count'] = len(re.sub(r'<[^>]+>', '', new_content).split())
+                logger.info(f"  Claude fixed content ({article['word_count']} words)")
+
+        article['_factchecked'] = True
+        return article
+
+    except Exception as e:
+        logger.warning(f"  Claude factcheck failed: {e}")
+        return article
+
+
 def generate_multiple_articles(
     topics: list,
     articles_count: int = 3,
@@ -1066,6 +1174,11 @@ def generate_multiple_articles(
 
             if wc < 800:
                 logger.warning(f"  Word count below target ({wc}/800), publishing anyway")
+
+            # Claude Haiku 팩트체크 + 수정
+            logger.info(f"  Running Claude factcheck...")
+            article = _factcheck_and_fix_with_claude(article)
+            wc = article.get('word_count', wc)
 
             article['source_data'] = topic_data
             articles.append(article)
