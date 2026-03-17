@@ -21,8 +21,10 @@ logger = logging.getLogger(__name__)
 
 def _get_text_utf8(resp: requests.Response) -> str:
     """Force UTF-8 decoding for RSS responses (requests often misdetects charset)."""
-    resp.encoding = 'utf-8'
-    return resp.text
+    try:
+        return resp.content.decode('utf-8')
+    except UnicodeDecodeError:
+        return resp.content.decode('euc-kr', errors='replace')
 
 # Category mapping: NexusTopic category → RSS feeds
 KOREAN_RSS_FEEDS = {
@@ -118,6 +120,11 @@ def _parse_rss(xml_text: str, source_name: str, limit: int = 5) -> List[Dict]:
             })
     except ET.ParseError as e:
         logger.warning(f"XML parse error for {source_name}: {e}")
+        logger.warning(f"  First 200 chars: {xml_text[:200]}")
+    except Exception as e:
+        logger.warning(f"Unexpected error parsing {source_name}: {e}")
+    if not items:
+        logger.warning(f"  {source_name}: 0 items parsed from {len(xml_text)} chars")
     return items
 
 
