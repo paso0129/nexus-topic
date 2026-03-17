@@ -29,14 +29,16 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SLUGS: ${{ github.event.inputs.slugs }}
         run: |
           cd backend
           python -c "
+          import os
           from scripts.database import get_db_client
           db = get_db_client()
-          slugs = '${{ github.event.inputs.slugs }}'.split(',')
-          for slug in slugs:
+          for slug in os.environ['SLUGS'].split(','):
               slug = slug.strip()
               result = db.delete_article(slug)
-              print(f'{'✓' if result else '✗'} Deleted: {slug}')
+              status = 'OK' if result else 'FAIL'
+              print(f'{status}: {slug}')
           "
