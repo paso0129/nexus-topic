@@ -131,7 +131,9 @@ def fetch_korean_news_rss(limit_per_feed: int = 5) -> List[Dict]:
         resp = requests.get(SBS_POPULAR_FEED, timeout=15,
                            headers={'User-Agent': 'Mozilla/5.0 (compatible; NexusTopic/1.0)'})
         resp.raise_for_status()
-        popular = _parse_rss(_get_text_utf8(resp), 'sbs_popular', limit=8)
+        text = _get_text_utf8(resp)
+        logger.info(f"  SBS response: {resp.status_code}, length={len(text)}, starts={text[:100]}")
+        popular = _parse_rss(text, 'sbs_popular', limit=8)
         all_topics.extend(popular)
         logger.info(f"  SBS 인기뉴스: {len(popular)} topics")
     except Exception as e:
@@ -145,7 +147,10 @@ def fetch_korean_news_rss(limit_per_feed: int = 5) -> List[Dict]:
                 resp = requests.get(url, timeout=15,
                                    headers={'User-Agent': 'Mozilla/5.0 (compatible; NexusTopic/1.0)'})
                 resp.raise_for_status()
-                items = _parse_rss(_get_text_utf8(resp), source_name, limit=limit_per_feed)
+                text = _get_text_utf8(resp)
+                if len(text) < 100:
+                    logger.warning(f"  {source_name}: short response ({len(text)} chars): {text[:80]}")
+                items = _parse_rss(text, source_name, limit=limit_per_feed)
                 # Tag with category
                 for item in items:
                     item['_quick_cat'] = category
