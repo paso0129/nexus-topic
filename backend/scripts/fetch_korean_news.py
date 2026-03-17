@@ -165,56 +165,8 @@ def fetch_korean_news_rss(limit_per_feed: int = 5) -> List[Dict]:
 
 
 def fetch_naver_datalab_trends() -> List[Dict]:
-    """
-    Fetch Naver DataLab rising search terms via HTML scraping.
-    Falls back gracefully if blocked.
-    """
-    logger.info("Fetching Naver DataLab trends...")
-    try:
-        resp = requests.get(
-            'https://datalab.naver.com/keyword/realtimeList.naver',
-            headers={
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
-                              'AppleWebKit/537.36 (KHTML, like Gecko) '
-                              'Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html',
-                'Accept-Language': 'ko-KR,ko;q=0.9',
-            },
-            timeout=15,
-        )
-        resp.raise_for_status()
-
-        # Extract search terms from HTML
-        # Naver DataLab uses various formats, try common patterns
-        keywords = re.findall(
-            r'<span class="item_title"[^>]*>([^<]+)</span>',
-            resp.text
-        )
-        if not keywords:
-            # Alternative pattern
-            keywords = re.findall(
-                r'"keyword"\s*:\s*"([^"]+)"',
-                resp.text
-            )
-
-        topics = []
-        for idx, kw in enumerate(keywords[:20]):
-            kw = kw.strip()
-            if kw and len(kw) >= 2:
-                topics.append({
-                    'keyword': kw,
-                    'source': 'naver_datalab',
-                    'score': max(100 - idx * 5, 10),
-                    'region': 'KR',
-                    'timestamp': datetime.now().isoformat(),
-                })
-
-        logger.info(f"  Naver DataLab: {len(topics)} trends")
-        return topics
-
-    except Exception as e:
-        logger.warning(f"  Naver DataLab failed: {e}")
-        return []
+    """Naver DataLab is discontinued (404). Returns empty list."""
+    return []
 
 
 def fetch_global_tech_rss(limit_per_feed: int = 5) -> List[Dict]:
