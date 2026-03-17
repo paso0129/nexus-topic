@@ -68,8 +68,15 @@ def fetch_google_trends(
             count = 0
             for idx, item in enumerate(items[:limit]):
                 keyword = item.text
-                if keyword and len(keyword) >= 2:
-                    trends_list.append({
+                if not keyword or len(keyword) < 2:
+                    continue
+                # Only allow Korean or English topics (skip Thai, Arabic, etc.)
+                has_korean = bool(re.search(r'[\uAC00-\uD7A3]', keyword))
+                has_english = bool(re.search(r'[a-zA-Z]', keyword))
+                if not has_korean and not has_english:
+                    logger.info(f"  Skipping non-KR/EN topic: {keyword}")
+                    continue
+                trends_list.append({
                         'keyword': keyword,
                         'source': 'google_trends',
                         'score': limit - idx,
