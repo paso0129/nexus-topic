@@ -475,6 +475,13 @@ Examples:
         help='Output directory for articles (default: ../frontend/public/articles)'
     )
 
+    parser.add_argument(
+        '--force-topic',
+        type=str,
+        default='',
+        help='Force include this topic in the generation batch'
+    )
+
     args = parser.parse_args()
 
     logger.info("=" * 80)
@@ -511,6 +518,19 @@ Examples:
         if not topics:
             logger.error("No trending topics found. Exiting.")
             sys.exit(1)
+
+        # Force-include a specific topic if provided
+        if args.force_topic:
+            force = {
+                'keyword': args.force_topic,
+                'source': 'force_topic',
+                'score': 999,
+                'region': 'KR',
+                'url': '',
+                '_quick_cat': 'IT·테크',
+            }
+            topics.insert(0, force)
+            logger.info(f"Force topic inserted: {args.force_topic}")
 
         logger.info(f"\nTop 10 trending topics:")
         for i, topic in enumerate(topics[:10], 1):

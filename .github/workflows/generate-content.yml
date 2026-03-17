@@ -14,7 +14,11 @@ on:
       articles:
         description: 'Number of articles to generate'
         required: false
-        default: '1'
+        default: '2'
+      force_topic:
+        description: 'Force include this topic (optional)'
+        required: false
+        default: ''
 
 jobs:
   generate:
@@ -55,7 +59,12 @@ jobs:
           GOOGLE_INDEXING_SA_KEY: ${{ secrets.GOOGLE_INDEXING_SA_KEY }}
         run: |
           cd backend
-          python main.py --articles ${{ github.event.inputs.articles || '2' }} || true
+          FORCE_TOPIC="${{ github.event.inputs.force_topic }}"
+          if [ -n "$FORCE_TOPIC" ]; then
+            python main.py --articles ${{ github.event.inputs.articles || '2' }} --force-topic "$FORCE_TOPIC" || true
+          else
+            python main.py --articles ${{ github.event.inputs.articles || '2' }} || true
+          fi
 
       - name: Revalidate frontend cache
         if: success()
