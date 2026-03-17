@@ -220,7 +220,7 @@ def main():
         try:
             # Quality check (hallucination detection)
             logger.info(f"\n  [{slug}] {title}")
-            full_article = db.get_article(slug)
+            full_article = db.get_article_by_slug(slug)
             if not full_article:
                 logger.error(f"    Could not fetch article {slug}")
                 failed += 1
@@ -238,7 +238,7 @@ def main():
             if 'needs keywords' in art['issues'] or any('bad keywords' in i for i in art['issues']):
                 try:
                     from regenerate_keywords import _generate_keywords_and_category
-                    full_article = db.get_article(slug)
+                    full_article = db.get_article_by_slug(slug)
                     if full_article:
                         result = _generate_keywords_and_category(
                             full_article.get('title', ''),
@@ -256,7 +256,7 @@ def main():
             if 'needs image' in art['issues']:
                 try:
                     from scripts.fetch_images import fetch_image_for_article
-                    full_article = db.get_article(slug)
+                    full_article = db.get_article_by_slug(slug)
                     if full_article:
                         image_url = fetch_image_for_article(full_article)
                         if image_url:
