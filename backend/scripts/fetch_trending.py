@@ -77,13 +77,13 @@ def fetch_google_trends(
                     logger.info(f"  Skipping non-KR/EN topic: {keyword}")
                     continue
                 trends_list.append({
-                        'keyword': keyword,
-                        'source': 'google_trends',
-                        'score': limit - idx,
-                        'region': market,
-                        'timestamp': datetime.now().isoformat(),
-                    })
-                    count += 1
+                    'keyword': keyword,
+                    'source': 'google_trends',
+                    'score': limit - idx,
+                    'region': market,
+                    'timestamp': datetime.now().isoformat(),
+                })
+                count += 1
 
             logger.info(f"Fetched {count} trends from Google Trends ({market})")
 
