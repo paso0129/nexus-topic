@@ -879,25 +879,15 @@ def generate_article(
     if existing_articles:
         valid_slugs = {a['slug'] for a in existing_articles if a.get('slug')}
 
-    def _try_generate(provider_name, generate_fn, max_retries=2):
-        """Try generating and retry once if word count is too low."""
-        for retry in range(max_retries):
-            response_text = generate_fn()
-            article = _parse_response(response_text, topic)
-            # Validate internal links
-            if valid_slugs and article.get('content'):
-                article['content'] = _validate_internal_links(article['content'], valid_slugs)
-            wc = article.get('word_count', 0)
-            if wc >= effective_min:
-                logger.info(f"[{provider_name}] Article generated: {article['title']} ({wc} words)")
-                return article
-            if retry < max_retries - 1:
-                logger.warning(f"[{provider_name}] Article too short ({wc}/{effective_min} words), retrying...")
-                time.sleep(3)
-            else:
-                logger.warning(f"[{provider_name}] Article still short ({wc}/{effective_min} words), accepting anyway")
-                return article
-        return None
+    def _try_generate(provider_name, generate_fn):
+        """Generate once. 500+ words = accept, under 500 = discard."""
+        response_text = generate_fn()
+        article = _parse_response(response_text, topic)
+        if valid_slugs and article.get('content'):
+            article['content'] = _validate_internal_links(article['content'], valid_slugs)
+        wc = article.get('word_count', 0)
+        logger.info(f"[{provider_name}] Generated: {article.get('title', '?')} ({wc} words)")
+        return article
 
     # Primary: Gemini CLI (gemini-3.1-pro-preview, Google account auth)
     if _gemini_cli_path:
