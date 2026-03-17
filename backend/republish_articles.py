@@ -4,6 +4,9 @@ Republish unpublished articles that are in good shape.
 Checks each unpublished article for:
 - Has content (not empty)
 - Is Korean (numeric slug = new format)
+- Title is valid (not truncated, not foreign)
+- Content is not truncated (proper HTML, enough words)
+- No hallucination (AI quality check via Gemini)
 - Regenerates keywords if needed
 - Fetches image if missing
 
@@ -16,6 +19,7 @@ import sys
 import re
 import logging
 import argparse
+import time
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -26,6 +30,63 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger(__name__)
+
+
+def _check_article_quality(title: str, content: str) -> dict:
+    """Use Gemini to check article for hallucinations and quality issues."""
+    api_key = os.getenv('GOOGLE_API_KEY')
+    if not api_key:
+        return {'pass': True, 'reason': 'no API key, skipping check'}
+
+    try:
+        from google import genai
+        from google.genai import types as genai_types
+    except ImportError:
+        return {'pass': True, 'reason': 'genai not available'}
+
+    clean_text = re.sub(r'<[^>]+>', '', content)
+    preview = clean_text[:3000]
+
+    prompt = (
+        f"다음 한국어 뉴스 기사의 품질을 검증해주세요.\n\n"
+        f"제목: {title}\n"
+        f"본문: {preview}\n\n"
+        f"아래 항목만 확인하고 결과를 출력하세요:\n"
+        f"1. 가상 인물/기업: 실존하지 않는 인물이나 기업명이 마치 실제인 것처럼 사용됐는가?\n"
+        f"   (예: '체이스 인피니티'라는 가상 배우, '시냅틱 애널리틱스'라는 가상 기업)\n"
+        f"2. 글이 중간에 잘렸는가: 문장이 완성되지 않은 채 끝나거나, 글의 흐름이 갑자기 끊겼는가?\n"
+        f"3. 명백한 사실 오류: 현실과 정반대되는 주장이 있는가?\n\n"
+        f"응답 형식 (한 줄로):\n"
+        f"PASS 또는 FAIL: 사유\n"
+        f"예시: PASS\n"
+        f"예시: FAIL: '김도현'이라는 가상 인물이 실존 인물처럼 인용됨"
+    )
+
+    try:
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=genai_types.GenerateContentConfig(
+                temperature=0.1,
+                max_output_tokens=512,
+                thinking_config=genai_types.ThinkingConfig(thinking_budget=0),
+            ),
+        )
+        raw = response.text.strip()
+        logger.info(f"    Quality check: {raw[:100]}")
+
+        if raw.upper().startswith('PASS'):
+            return {'pass': True, 'reason': 'passed'}
+        elif raw.upper().startswith('FAIL'):
+            reason = raw.split(':', 1)[1].strip() if ':' in raw else raw
+            return {'pass': False, 'reason': reason}
+        else:
+            # Ambiguous response, be conservative
+            return {'pass': False, 'reason': f'unclear response: {raw[:80]}'}
+    except Exception as e:
+        logger.warning(f"    Quality check error: {e}")
+        return {'pass': True, 'reason': f'check failed: {e}'}
 
 
 def main():
@@ -147,15 +208,32 @@ def main():
         logger.info("\n[DRY RUN] No changes made.")
         return
 
-    # Fix and publish
+    # Quality check + fix + publish
     success = 0
     failed = 0
+    quality_failed = 0
 
     for art in publishable:
         slug = art['slug']
-        update_data = {'published': True}
+        title = art['title']
 
         try:
+            # Quality check (hallucination detection)
+            logger.info(f"\n  [{slug}] {title}")
+            full_article = db.get_article(slug)
+            if not full_article:
+                logger.error(f"    Could not fetch article {slug}")
+                failed += 1
+                continue
+
+            quality = _check_article_quality(title, full_article.get('content', ''))
+            if not quality['pass']:
+                logger.warning(f"    ❌ QUALITY FAIL: {quality['reason']}")
+                quality_failed += 1
+                continue
+
+            update_data = {'published': True}
+
             # Regenerate keywords if needed
             if 'needs keywords' in art['issues'] or any('bad keywords' in i for i in art['issues']):
                 try:
@@ -200,8 +278,10 @@ def main():
             failed += 1
             logger.error(f"  ❌ Error for {slug}: {e}")
 
+        time.sleep(3)  # Rate limit
+
     logger.info(f"\n{'='*60}")
-    logger.info(f"Done! Published: {success}, Failed: {failed}")
+    logger.info(f"Done! Published: {success}, Quality failed: {quality_failed}, Error: {failed}")
 
     # Revalidate all pages
     if success > 0:
