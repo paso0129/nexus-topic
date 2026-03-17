@@ -1,0 +1,147 @@
+name: Factcheck Existing Articles (Claude Sonnet)
+
+on:
+  workflow_dispatch:
+    inputs:
+      slugs:
+        description: 'Article slugs to factcheck (comma-separated, or "all" for all published)'
+        required: false
+        default: 'all'
+
+jobs:
+  factcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: cd backend && pip install -r requirements.txt
+
+      - name: Factcheck and fix articles
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
+        run: |
+          cd backend
+          python -c "
+          import os, re, time, requests as http_requests
+          import anthropic
+          from scripts.database import DatabaseClient
+
+          db = DatabaseClient()
+          client = anthropic.Anthropic(api_key=os.environ['ANTHROPIC_API_KEY'])
+
+          slugs_input = '${{ github.event.inputs.slugs }}'
+          if slugs_input == 'all':
+              articles = db.list_articles(limit=200, published_only=True)
+              slugs = [a['slug'] for a in articles]
+          else:
+              slugs = [s.strip() for s in slugs_input.split(',')]
+
+          print(f'Factchecking {len(slugs)} articles with Claude Sonnet 4.6')
+
+          for slug in slugs:
+              article = db.get_article_by_slug(slug)
+              if not article:
+                  print(f'SKIP: {slug} not found')
+                  continue
+
+              title = article.get('title', '')
+              content = article.get('content', '')
+              print(f'\n{\"=\" * 60}')
+              print(f'Checking: {slug} — {title[:50]}')
+
+              prompt = f'''다음 한국어 뉴스 기사를 팩트체크하고 문제가 있으면 수정해주세요.
+
+          제목: {title}
+
+          본문 (HTML):
+          {content}
+
+          검수 규칙:
+          1. 가상 인물 감지: 실존 여부가 불확실한 인물 이름 → \"업계 관계자는\" 등 익명 표현으로 교체. 대통령/장관/유명 CEO 등 공인은 유지.
+          2. 잘못된 수치: 명백히 틀린 가격/수치 → 제거 또는 \"약 ~원대\" 헤지 표현으로 교체
+          3. 존재하지 않는 제품/기능/칩셋 → 해당 문장 제거
+          4. 억지 연결: 서로 관계없는 주제가 억지로 엮여있으면 관련 없는 부분 제거
+          5. 카테고리: 기사 내용에 맞는 카테고리 판단 (경제/IT·테크/글로벌 경제/정치/사회/글로벌 사회/부동산/연예/스포츠)
+
+          응답 형식:
+          TITLE: 수정된 제목
+          CATEGORY: 카테고리
+          ISSUES: 발견된 문제 요약 (없으면 \"없음\")
+          CONTENT:
+          수정된 HTML 본문'''
+
+              try:
+                  response = client.messages.create(
+                      model='claude-sonnet-4-6-20250929',
+                      max_tokens=8192,
+                      messages=[{'role': 'user', 'content': prompt}],
+                  )
+                  raw = response.content[0].text.strip()
+
+                  issues_match = re.search(r'ISSUES:\s*(.+?)(?:\nCONTENT:|\n\n)', raw, re.DOTALL)
+                  issues = issues_match.group(1).strip() if issues_match else 'parse fail'
+                  print(f'  Issues: {issues[:120]}')
+
+                  title_match = re.search(r'TITLE:\s*(.+?)(?:\n|$)', raw)
+                  cat_match = re.search(r'CATEGORY:\s*(.+?)(?:\n|$)', raw)
+                  content_match = re.search(r'CONTENT:\s*\n(.+)', raw, re.DOTALL)
+
+                  update = {}
+                  if title_match:
+                      new_title = title_match.group(1).strip()
+                      if new_title and new_title != title:
+                          update['title'] = new_title
+                          print(f'  Title: {title[:30]} → {new_title[:30]}')
+
+                  if cat_match:
+                      new_cat = cat_match.group(1).strip()
+                      for vc in ['경제','IT·테크','글로벌 경제','정치','사회','글로벌 사회','부동산','연예','스포츠']:
+                          if vc in new_cat:
+                              if vc != article.get('topic'):
+                                  update['topic'] = vc
+                                  print(f'  Category: {article.get(\"topic\")} → {vc}')
+                              break
+
+                  if content_match:
+                      new_content = content_match.group(1).strip()
+                      if new_content and len(new_content) > 200:
+                          update['content'] = new_content
+                          wc = len(re.sub(r'<[^>]+>', '', new_content).split())
+                          update['word_count'] = wc
+                          print(f'  Content fixed ({wc} words)')
+
+                  if update:
+                      db.update_article(slug, update)
+                      print(f'  UPDATED: {slug}')
+                  else:
+                      print(f'  No changes needed')
+
+              except Exception as e:
+                  print(f'  ERROR: {e}')
+
+              time.sleep(2)
+
+          # Revalidate
+          secret = os.environ.get('REVALIDATION_SECRET', '')
+          if secret:
+              http_requests.post(
+                  'https://www.nexustopic.com/api/revalidate',
+                  headers={'Authorization': f'Bearer {secret}', 'Content-Type': 'application/json'},
+                  json={'all_articles': True},
+                  timeout=10,
+              )
+              print('\nRevalidated all pages')
+          "
