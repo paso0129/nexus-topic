@@ -1003,7 +1003,7 @@ def generate_multiple_articles(
             **kwargs,
         )
 
-        if article and article.get('word_count', 0) >= min_words * 0.7:
+        if article and article.get('word_count', 0) >= kwargs.get('min_words', 500) * 0.7:
             # Post-generation semantic duplicate check
             if existing_titles and _is_semantic_duplicate(article['title'], existing_titles):
                 logger.info(f"Skipping semantic duplicate: '{article['title']}'")

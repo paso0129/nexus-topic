@@ -187,11 +187,12 @@ JSON 배열로만 응답, 마크다운 없이:
 
             client = genai.Client(api_key=api_key)
             response = client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash",
                 contents=prompt,
                 config=genai_types.GenerateContentConfig(
                     temperature=0.1,
                     max_output_tokens=2048,
+                    thinking_config=genai_types.ThinkingConfig(thinking_budget=0),
                 ),
             )
 
