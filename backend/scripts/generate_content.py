@@ -983,32 +983,31 @@ def generate_multiple_articles(
             logger.info(f"Skipping duplicate topic: {topic}")
             continue
 
-        # Skip if very similar topic exists (word overlap similarity)
+        # Duplicate check (force topics skip this entirely)
         topic_lower = topic.lower()
         is_duplicate = False
+        skip_dup = topic_data.get('_skip_duplicate', False)
 
-        # 1. Compare new topic keyword against existing trending keywords
-        for existing_kw in existing_keywords:
-            if _is_similar(topic_lower, existing_kw, threshold=0.4):
-                logger.info(f"Skipping similar keyword (keyword match): '{topic}' ~ '{existing_kw}'")
-                is_duplicate = True
-                break
-
-        # 2. Compare against existing article titles
-        if not is_duplicate:
-            for existing_title in existing_titles:
-                if _is_similar(topic_lower, existing_title, threshold=0.35):
-                    logger.info(f"Skipping similar topic (title match): '{topic}' ~ '{existing_title}'")
+        if skip_dup:
+            logger.info(f"  Force topic — skipping duplicate check")
+        else:
+            for existing_kw in existing_keywords:
+                if _is_similar(topic_lower, existing_kw, threshold=0.4):
+                    logger.info(f"Skipping similar keyword (keyword match): '{topic}' ~ '{existing_kw}'")
                     is_duplicate = True
                     break
-
-        # 3. Also check against other topics in current batch
-        if not is_duplicate:
-            for used in used_topics:
-                if _is_similar(topic_lower, used, threshold=0.4):
-                    logger.info(f"Skipping similar topic in batch: '{topic}' ~ '{used}'")
-                    is_duplicate = True
-                    break
+            if not is_duplicate:
+                for existing_title in existing_titles:
+                    if _is_similar(topic_lower, existing_title, threshold=0.35):
+                        logger.info(f"Skipping similar topic (title match): '{topic}' ~ '{existing_title}'")
+                        is_duplicate = True
+                        break
+            if not is_duplicate:
+                for used in used_topics:
+                    if _is_similar(topic_lower, used, threshold=0.4):
+                        logger.info(f"Skipping similar topic in batch: '{topic}' ~ '{used}'")
+                        is_duplicate = True
+                        break
 
         if is_duplicate:
             continue

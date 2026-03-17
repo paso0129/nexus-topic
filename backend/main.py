@@ -528,9 +528,10 @@ Examples:
                 'region': 'KR',
                 'url': '',
                 '_quick_cat': 'IT·테크',
+                '_skip_duplicate': True,
             }
             topics.insert(0, force)
-            logger.info(f"Force topic inserted: {args.force_topic}")
+            logger.info(f"Force topic inserted (skip duplicate check): {args.force_topic}")
 
         logger.info(f"\nTop 10 trending topics:")
         for i, topic in enumerate(topics[:10], 1):
