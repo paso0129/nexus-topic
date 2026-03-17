@@ -666,7 +666,7 @@ HTML 앵커 태그 사용: <a href="URL" target="_blank" rel="noopener noreferre
 
 기사 요구사항:
 - 대상 독자: {target_audience}
-- 분량: {min_words}-{max_words}어절. 되도록 800어절 이상 작성하되, 주제에 따라 유연하게 조절.
+- 분량: 되도록 800어절 이상, 최소 500어절은 반드시 넘길 것. 목표는 {min_words}-{max_words}어절.
 - 형식: HTML 시맨틱 태그 (h2, h3, p, ul, ol, strong, em, blockquote)
 - 톤: 전문적이고 객관적 — 카테고리별 톤 가이드 참조
 - SEO: 관련 키워드 자연스럽게 포함
@@ -1068,7 +1068,12 @@ def generate_multiple_articles(
 
         if article and article.get('title'):
             wc = article.get('word_count', 0)
-            min_wc = kwargs.get('min_words', 500)
+
+            # 500어절 미만은 폐기
+            if wc < 500:
+                logger.warning(f"  DISCARD ({wc} words < 500 minimum): {article.get('title', '')[:50]}")
+                logger.info(f"{'=' * 70}")
+                continue
 
             # Post-generation semantic duplicate check
             if existing_titles and _is_semantic_duplicate(article['title'], existing_titles):
@@ -1076,7 +1081,7 @@ def generate_multiple_articles(
                 logger.info(f"{'=' * 70}")
                 continue
 
-            if wc < min_wc * 0.7:
+            if wc < 800:
                 logger.warning(f"  Word count below target ({wc}/{min_wc}), publishing anyway")
 
             article['source_data'] = topic_data
