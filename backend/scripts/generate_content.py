@@ -1097,10 +1097,13 @@ def generate_multiple_articles(
 
             provider = article.get('_provider', 'unknown')
             source = topic_data.get('source', 'unknown')
+            final_cat = article.get('topic', '?')
+            cat_changed = f" (소스: {quick_cat} → 최종: {final_cat})" if final_cat != quick_cat else ""
             logger.info(f"  >> PUBLISHED")
-            logger.info(f"     Title:    {article['title']}")
-            logger.info(f"     Category: {article.get('topic', '?')} | Model: {provider} | Source: {source}")
-            logger.info(f"     Words:    {wc} | Keywords: {article.get('keywords', [])}")
+            logger.info(f"     제목:     {article['title']}")
+            logger.info(f"     최종카테고리: {final_cat}{cat_changed}")
+            logger.info(f"     모델:     {provider} | 소스: {source}")
+            logger.info(f"     단어수:   {wc} | 키워드: {article.get('keywords', [])}")
         else:
             logger.warning(f"  >> FAILED to generate article for: {topic}")
         logger.info(f"{'=' * 70}")
