@@ -193,40 +193,21 @@ def fetch_naver_datalab_trends() -> List[Dict]:
 
 
 def fetch_global_tech_rss(limit_per_feed: int = 5) -> List[Dict]:
-    """Fetch trending topics from global tech media (The Verge, TechCrunch, Ars Technica)."""
+    """Fetch trending topics from global tech media. RSS 상위 = 최신/중요 기사."""
     logger.info("Fetching global tech RSS feeds...")
     all_topics = []
-
-    # Keywords that indicate major product launches / must-cover stories
-    MAJOR_KEYWORDS = [
-        'apple', 'iphone', 'ipad', 'airpods', 'macbook', 'wwdc', 'ios',
-        'samsung', 'galaxy', 'unpacked', 'one ui',
-        'google', 'pixel', 'android', 'gemini', 'bard',
-        'nvidia', 'geforce', 'rtx', 'gtc',
-        'microsoft', 'windows', 'copilot', 'xbox',
-        'tesla', 'spacex', 'openai', 'chatgpt', 'gpt',
-        'meta', 'quest', 'threads',
-        'launch', 'announce', 'release', 'unveil', 'reveal',
-    ]
 
     for source_name, url in GLOBAL_TECH_FEEDS:
         try:
             resp = requests.get(url, timeout=15,
                                headers={'User-Agent': 'NexusTopic/1.0'})
             resp.raise_for_status()
-
-            items = _parse_rss(resp.text, source_name, limit=limit_per_feed * 2)
-
-            # Boost major product launches
+            # RSS 상위 기사 = 가장 중요. _parse_rss가 이미 순서 기반 스코어 부여
+            items = _parse_rss(resp.text, source_name, limit=limit_per_feed)
             for item in items:
-                kw_lower = item['keyword'].lower()
-                is_major = any(mk in kw_lower for mk in MAJOR_KEYWORDS)
-                if is_major:
-                    item['score'] = max(item['score'], 80)
                 item['_quick_cat'] = 'IT·테크'
-
-            all_topics.extend(items[:limit_per_feed])
-            logger.info(f"  {source_name}: {len(items[:limit_per_feed])} topics")
+            all_topics.extend(items)
+            logger.info(f"  {source_name}: {len(items)} topics")
         except Exception as e:
             logger.warning(f"  {source_name} failed: {e}")
 

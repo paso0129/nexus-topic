@@ -196,34 +196,7 @@ def get_all_trending_topics(
 
     all_trends = google_trends + korean_trends
 
-    # Boost high-CPC category keywords (finance, insurance, legal, health, AI/SaaS, real estate)
-    HIGH_CPC_KEYWORDS = [
-        # 한국 금융·보험
-        '주식', '코스피', '코스닥', '금리', '대출', '보험', '투자', '펀드',
-        '적금', '예금', '증권', '채권', '환율', '원화', '달러',
-        # 글로벌 경제
-        'bitcoin', 'ethereum', 'crypto', 'nasdaq', 's&p', '비트코인',
-        '연준', '나스닥', '다우', '유가',
-        # 부동산
-        '아파트', '전세', '월세', '분양', '재건축', '청약', '부동산',
-        # IT·테크
-        '반도체', 'AI', '삼성', '애플', '엔비디아', 'SK하이닉스',
-        'semiconductor', 'nvidia', 'apple',
-        # 기타 고수익
-        'insurance', 'mortgage', 'loan', 'real estate',
-        'stock', 'invest', 'trading',
-    ]
-
-    for trend in all_trends:
-        keyword_lower = trend['keyword'].lower()
-        cpc_matches = sum(1 for kw in HIGH_CPC_KEYWORDS if kw.lower().strip() in keyword_lower)
-        if cpc_matches > 0:
-            # Boost score by 50% per matching CPC keyword, cap at 3x
-            multiplier = min(1.0 + (0.5 * cpc_matches), 3.0)
-            trend['score'] = max(round(trend['score'] * multiplier), 50)
-            trend['cpc_boost'] = True
-
-    # Sort by boosted score (descending)
+    # Sort by source score (RSS 상위 = 높은 스코어, 자연스러운 우선순위)
     all_trends.sort(key=lambda x: x['score'], reverse=True)
 
     # Remove duplicates (keep highest score) - word overlap similarity check
