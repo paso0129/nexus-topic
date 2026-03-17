@@ -35,7 +35,6 @@ KOREAN_RSS_FEEDS = {
         ('hankyung_it', 'https://www.hankyung.com/feed/it'),
         ('etnews_popular', 'http://rss.etnews.com/Section903.xml'),
         ('etnews_sw_ai', 'http://rss.etnews.com/04046.xml'),
-        ('zdnet_kr', 'https://zdnet.co.kr/rss/all_news.xml'),
     ],
     '글로벌 경제': [
         ('hankyung_international', 'https://www.hankyung.com/feed/international'),
@@ -54,7 +53,6 @@ KOREAN_RSS_FEEDS = {
     ],
     '부동산': [
         ('hankyung_realestate', 'https://www.hankyung.com/feed/realestate'),
-        ('mk_realestate', 'https://www.mk.co.kr/rss/40300001/'),
     ],
     '연예': [
         ('sbs_entertainment', 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=14&plink=RSSREADER'),
@@ -63,7 +61,6 @@ KOREAN_RSS_FEEDS = {
     '스포츠': [
         ('sbs_sports', 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=09&plink=RSSREADER'),
         ('hankyung_sports', 'https://www.hankyung.com/feed/sports'),
-        ('mk_sports', 'https://www.mk.co.kr/rss/50400001/'),
     ],
 }
 
@@ -132,7 +129,7 @@ def fetch_korean_news_rss(limit_per_feed: int = 5) -> List[Dict]:
     # 1. SBS 인기뉴스 (top stories across all categories)
     try:
         resp = requests.get(SBS_POPULAR_FEED, timeout=15,
-                           headers={'User-Agent': 'NexusTopic/1.0'})
+                           headers={'User-Agent': 'Mozilla/5.0 (compatible; NexusTopic/1.0)'})
         resp.raise_for_status()
         popular = _parse_rss(_get_text_utf8(resp), 'sbs_popular', limit=8)
         all_topics.extend(popular)
@@ -146,7 +143,7 @@ def fetch_korean_news_rss(limit_per_feed: int = 5) -> List[Dict]:
         for source_name, url in feeds:
             try:
                 resp = requests.get(url, timeout=15,
-                                   headers={'User-Agent': 'NexusTopic/1.0'})
+                                   headers={'User-Agent': 'Mozilla/5.0 (compatible; NexusTopic/1.0)'})
                 resp.raise_for_status()
                 items = _parse_rss(_get_text_utf8(resp), source_name, limit=limit_per_feed)
                 # Tag with category
@@ -223,7 +220,7 @@ def fetch_global_tech_rss(limit_per_feed: int = 5) -> List[Dict]:
     for source_name, url in GLOBAL_TECH_FEEDS:
         try:
             resp = requests.get(url, timeout=15,
-                               headers={'User-Agent': 'NexusTopic/1.0'})
+                               headers={'User-Agent': 'Mozilla/5.0 (compatible; NexusTopic/1.0)'})
             resp.raise_for_status()
             # RSS 상위 기사 = 가장 중요. _parse_rss가 이미 순서 기반 스코어 부여
             items = _parse_rss(_get_text_utf8(resp), source_name, limit=limit_per_feed)
