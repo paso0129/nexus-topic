@@ -762,19 +762,20 @@ def _parse_response(response_text: str, topic: str) -> Dict:
     else:
         keywords = extract_keywords(content)
 
-    # Force 글로벌 경제 for clearly international topics
-    if category == '경제' and keywords:
-        global_indicators = {
-            '비트코인', '암호화폐', '가상자산', '달러', '금값', '유가', '원유',
-            '연준', 'fed', '나스닥', 's&p500', '다우', '미국', '중국',
-            '일본', '유럽', '환율', '원달러', '엔화', '위안화',
-            '네타냐후', '트럼프', '바이든', '이스라엘', '우크라이나',
-            '러시아', '대만', '인도', 'etf', '월가', '골드만삭스',
+    # 경제 카테고리 중 한국 국내가 아닌 것은 글로벌 경제로 이동
+    if category == '경제':
+        domestic_indicators = {
+            '코스피', '코스닥', '한국은행', '기준금리', '삼성전자', 'sk하이닉스',
+            '현대차', '한국', '국내', '서울', '부산', '대구', '인천',
+            '청약', '분양', '아파트', '전세', '월세', 'kdi', '한은',
+            '금통위', '국채', '채권', '고용률', '실업률', '일자리',
+            '수출', '수입', '무역수지', '경상수지', 'gdp', '소비자물가',
+            '대우건설', 'lg', 'sk', '포스코', '카카오', '네이버',
+            '기름값', '유류세', '국민연금', '건강보험', '최저임금',
         }
-        kw_lower = {k.lower() for k in keywords}
-        title_lower = title.lower()
-        title_globals = any(ind in title_lower for ind in global_indicators)
-        if (kw_lower & global_indicators) or title_globals:
+        all_text = ' '.join(keywords).lower() + ' ' + title.lower()
+        has_domestic = any(ind in all_text for ind in domestic_indicators)
+        if not has_domestic:
             logger.info(f"Category forced: 경제 → 글로벌 경제 (title={title[:30]})")
             category = '글로벌 경제'
 
