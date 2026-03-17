@@ -1,0 +1,42 @@
+name: Delete Article
+
+on:
+  workflow_dispatch:
+    inputs:
+      slugs:
+        description: 'Article slugs to delete (comma-separated)'
+        required: true
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: cd backend && pip install -r requirements.txt
+
+      - name: Delete articles
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          cd backend
+          python -c "
+          from scripts.database import get_db_client
+          db = get_db_client()
+          slugs = '${{ github.event.inputs.slugs }}'.split(',')
+          for slug in slugs:
+              slug = slug.strip()
+              result = db.delete_article(slug)
+              print(f'{'✓' if result else '✗'} Deleted: {slug}')
+          "
