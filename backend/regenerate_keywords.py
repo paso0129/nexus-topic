@@ -46,23 +46,21 @@ def _generate_keywords_and_category(title: str, content: str) -> dict:
     preview = clean_text[:2000]
 
     prompt = (
-        f"다음 기사를 읽고 두 가지를 답하세요.\n\n"
+        f"다음 기사를 읽고 세 가지를 답하세요.\n\n"
         f"제목: {title}\n"
         f"본문 일부: {preview}\n\n"
-        f"1. 카테고리: 아래 6개 중 가장 적합한 하나를 골라주세요\n"
+        f"1. 이 기사의 주요 대상이 한국 국내인가, 해외인가?\n"
+        f"   - DOMESTIC: 한국 국내 기업, 한국 정책, 한국 시장이 주제 (예: 코스피, 삼성전자, 한국은행)\n"
+        f"   - GLOBAL: 해외 기업, 해외 인물, 해외 시장, 국제 이슈가 주제 (예: 비트코인, 달러, 네타냐후, 파키스탄, 나스닥)\n\n"
+        f"2. 카테고리: 아래 6개 중 하나\n"
         f"   경제, IT·테크, 글로벌 경제, 부동산, 연예, 스포츠\n"
-        f"   카테고리 구분 규칙 (반드시 따를 것):\n"
-        f"   - 경제: 한국 국내 경제만 (코스피, 한국은행, 국내 기업, 한국 정책)\n"
-        f"   - 글로벌 경제: 해외 경제 (비트코인, 달러, 금값, 유가, 미국 증시, 연준, 해외 기업, 해외 정치/경제, 환율)\n"
-        f"   - 비트코인/암호화폐 → 반드시 글로벌 경제\n"
-        f"   - 달러/금/유가/원자재 → 반드시 글로벌 경제\n"
-        f"   - 해외 인물/국가가 주제 → 반드시 글로벌 경제\n\n"
-        f"2. 키워드: 기사 핵심 주제를 대표하는 고유명사/명사 정확히 3개\n"
+        f"   규칙: 1번에서 DOMESTIC이면 경제, GLOBAL이면 글로벌 경제 (IT·테크/부동산/연예/스포츠는 별도)\n\n"
+        f"3. 키워드: 기사 핵심 주제를 대표하는 고유명사/명사 정확히 3개\n"
         f"   - 반드시 완전한 단어 (2글자 이상). 절대 단어를 자르지 마세요\n"
-        f"   - 고유명사 또는 핵심 주제 명사만\n"
         f"   - ✅ 좋은 예: 대우건설, 주가, 성장동력 / 비트코인, 암호화폐, 투자\n"
-        f"   - ❌ 나쁜 예: 주, 건, 비트코 (단어가 잘림) / 있다, 새로운, 에서 (동사/형용사/조사)\n\n"
-        f"응답 형식 (반드시 두 줄 모두 출력):\n"
+        f"   - ❌ 나쁜 예: 주, 건, 비트코 (잘림) / 있다, 새로운 (동사/형용사)\n\n"
+        f"응답 형식 (반드시 세 줄 모두 출력):\n"
+        f"SCOPE: DOMESTIC 또는 GLOBAL\n"
         f"TAGS: 키워드1, 키워드2, 키워드3\n"
         f"CATEGORY: 카테고리"
     )
@@ -80,6 +78,11 @@ def _generate_keywords_and_category(title: str, content: str) -> dict:
     raw = response.text.strip()
     logger.info(f"  Raw AI response: {raw}")
 
+    # Parse scope (DOMESTIC/GLOBAL)
+    scope_match = re.search(r'SCOPE[:\s]*(DOMESTIC|GLOBAL)', raw, re.IGNORECASE)
+    scope = scope_match.group(1).upper() if scope_match else None
+    logger.info(f"  Scope: {scope}")
+
     # Parse category - flexible matching
     cat_match = re.search(r'(?:CATEGORY|카테고리)[:\s]*(.+)', raw, re.IGNORECASE)
     category = None
@@ -90,6 +93,11 @@ def _generate_keywords_and_category(title: str, content: str) -> dict:
             if valid_cat in cat or cat in valid_cat:
                 category = valid_cat
                 break
+
+    # If scope is GLOBAL but category is 경제, force to 글로벌 경제
+    if scope == 'GLOBAL' and category == '경제':
+        logger.info(f"  Scope=GLOBAL + Category=경제 → 글로벌 경제로 보정")
+        category = '글로벌 경제'
 
     # Parse keywords - flexible matching
     tags_match = re.search(r'(?:TAGS|키워드|태그)[:\s]*(.+)', raw, re.IGNORECASE)
@@ -104,24 +112,6 @@ def _generate_keywords_and_category(title: str, content: str) -> dict:
             last_line = lines[-1].strip()
             if ',' in last_line and not last_line.startswith('CATEGORY'):
                 keywords = [k.strip().strip('"\'[]') for k in last_line.split(',') if len(k.strip().strip('"\'[]')) >= 2][:3]
-
-    # Post-process: 경제 카테고리 중 한국 국내가 아닌 것은 글로벌 경제로 이동
-    # 로직: "한국 국내 키워드가 하나라도 있으면 경제, 없으면 글로벌 경제"
-    if category == '경제':
-        domestic_indicators = {
-            '코스피', '코스닥', '한국은행', '기준금리', '삼성전자', 'sk하이닉스',
-            '현대차', '한국', '국내', '서울', '부산', '대구', '인천',
-            '청약', '분양', '아파트', '전세', '월세', 'kdi', '한은',
-            '금통위', '국채', '채권', '고용률', '실업률', '일자리',
-            '수출', '수입', '무역수지', '경상수지', 'gdp', '소비자물가',
-            '대우건설', 'lg', 'sk', '포스코', '카카오', '네이버',
-            '기름값', '유류세', '국민연금', '건강보험', '최저임금',
-        }
-        all_text = ' '.join(keywords).lower() + ' ' + title.lower()
-        has_domestic = any(ind in all_text for ind in domestic_indicators)
-        if not has_domestic:
-            category = '글로벌 경제'
-            logger.info(f"  Category forced: 경제 → 글로벌 경제 (no domestic keywords in: {keywords})")
 
     return {'keywords': keywords, 'category': category}
 

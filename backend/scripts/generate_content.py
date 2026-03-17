@@ -762,23 +762,6 @@ def _parse_response(response_text: str, topic: str) -> Dict:
     else:
         keywords = extract_keywords(content)
 
-    # 경제 카테고리 중 한국 국내가 아닌 것은 글로벌 경제로 이동
-    if category == '경제':
-        domestic_indicators = {
-            '코스피', '코스닥', '한국은행', '기준금리', '삼성전자', 'sk하이닉스',
-            '현대차', '한국', '국내', '서울', '부산', '대구', '인천',
-            '청약', '분양', '아파트', '전세', '월세', 'kdi', '한은',
-            '금통위', '국채', '채권', '고용률', '실업률', '일자리',
-            '수출', '수입', '무역수지', '경상수지', 'gdp', '소비자물가',
-            '대우건설', 'lg', 'sk', '포스코', '카카오', '네이버',
-            '기름값', '유류세', '국민연금', '건강보험', '최저임금',
-        }
-        all_text = ' '.join(keywords).lower() + ' ' + title.lower()
-        has_domestic = any(ind in all_text for ind in domestic_indicators)
-        if not has_domestic:
-            logger.info(f"Category forced: 경제 → 글로벌 경제 (title={title[:30]})")
-            category = '글로벌 경제'
-
     return {
         'title': title,
         'meta_description': meta_description,
