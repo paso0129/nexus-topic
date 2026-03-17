@@ -839,15 +839,17 @@ def generate_article(
     # Primary: Gemini CLI (gemini-3.1-pro-preview, Google account auth)
     if _gemini_cli_path:
         try:
+            logger.info(f"  Model: gemini-3.1-pro-preview (CLI)")
             article = _try_generate('Gemini CLI', lambda: _generate_with_gemini_cli(prompt))
             if article:
-                article['_provider'] = 'gemini-cli'
+                article['_provider'] = 'gemini-3.1-pro-preview (CLI)'
                 return article
         except Exception as e:
             logger.warning(f"Gemini CLI failed: {e}")
 
     # Fallback: Gemini API (gemini-2.5-pro)
     if os.getenv('GOOGLE_API_KEY') and genai:
+        logger.info(f"  Model: gemini-2.5-pro (API fallback)")
         for attempt in range(3):
             try:
                 if attempt > 0:
@@ -856,7 +858,7 @@ def generate_article(
                     time.sleep(wait)
                 article = _try_generate('Gemini API', lambda: _generate_with_gemini_api(prompt))
                 if article:
-                    article['_provider'] = 'gemini-api'
+                    article['_provider'] = 'gemini-2.5-pro (API)'
                     time.sleep(5)
                     return article
             except Exception as e:
@@ -972,7 +974,11 @@ def generate_multiple_articles(
 
         quick_cat = topic_data.get('_quick_cat', '?')
         author_name = _get_author_for_category(quick_cat)
-        logger.info(f"Generating article {len(articles)+1}/{articles_count} [{quick_cat}] by {author_name}: {topic}")
+        source = topic_data.get('source', 'unknown')
+        logger.info(f"{'=' * 70}")
+        logger.info(f"  Article {len(articles)+1}/{articles_count}")
+        logger.info(f"  Topic:    {topic}")
+        logger.info(f"  Category: {quick_cat} | Author: {author_name} | Source: {source}")
 
         # Collect real search data for this topic (use Gemini-extracted keyword if available)
         search_context = None
@@ -1003,21 +1009,33 @@ def generate_multiple_articles(
             **kwargs,
         )
 
-        if article and article.get('word_count', 0) >= kwargs.get('min_words', 500) * 0.7:
+        if article and article.get('title'):
+            wc = article.get('word_count', 0)
+            min_wc = kwargs.get('min_words', 500)
+
             # Post-generation semantic duplicate check
             if existing_titles and _is_semantic_duplicate(article['title'], existing_titles):
-                logger.info(f"Skipping semantic duplicate: '{article['title']}'")
+                logger.info(f"  SKIP (duplicate): '{article['title']}'")
+                logger.info(f"{'=' * 70}")
                 continue
 
-            # Add source information
+            if wc < min_wc * 0.7:
+                logger.warning(f"  Word count below target ({wc}/{min_wc}), publishing anyway")
+
             article['source_data'] = topic_data
             articles.append(article)
             used_topics.add(topic.lower())
             existing_titles.add(article['title'].lower())
-        elif article:
-            logger.warning(f"Article too short ({article.get('word_count', 0)} words), skipping: {topic}")
+
+            provider = article.get('_provider', 'unknown')
+            source = topic_data.get('source', 'unknown')
+            logger.info(f"  >> PUBLISHED")
+            logger.info(f"     Title:    {article['title']}")
+            logger.info(f"     Category: {article.get('topic', '?')} | Model: {provider} | Source: {source}")
+            logger.info(f"     Words:    {wc} | Keywords: {article.get('keywords', [])}")
         else:
-            logger.warning(f"Failed to generate article for: {topic}")
+            logger.warning(f"  >> FAILED to generate article for: {topic}")
+        logger.info(f"{'=' * 70}")
 
     logger.info(f"Successfully generated {len(articles)} unique articles")
 

@@ -169,7 +169,9 @@ def get_all_trending_topics(
     Returns:
         Combined and sorted list of trending topics
     """
-    logger.info("Fetching trending topics from Google Trends + Korean News RSS + Reddit")
+    logger.info(f"{'=' * 70}")
+    logger.info(f"  TRENDING SOURCES")
+    logger.info(f"{'=' * 70}")
 
     google_trends = fetch_google_trends(markets=markets, limit=limit_per_source)
 
