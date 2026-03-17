@@ -288,56 +288,107 @@ def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]
             selected.append(t)
             used.add(id(t))
 
-    # 경제 guarantee: ALWAYS place 2 경제 topics at the front
+    # Category fallback pools — 각 카테고리별 보장 토픽
     import random as _rand
-    _economy_fallbacks = [
-        '코스피 코스닥 증시 전망 분석',
-        '한국은행 기준금리 결정 경제 영향',
-        '수출 무역수지 경기 전망',
-        '삼성전자 실적 반도체 시장',
-        '소비자물가 인플레이션 경제 전망',
-        '원달러 환율 외환시장 동향',
-        '국채 금리 채권시장 분석',
-        '부동산 시장 아파트 시세 동향',
-        '스타트업 투자 벤처캐피탈 동향',
-        '고용 실업률 일자리 경제지표',
-    ]
-    eco_bucket = buckets.get('경제', [])
-    _rand.shuffle(eco_bucket)
-    eco_guaranteed = 0
-    for t in eco_bucket:
-        if id(t) not in used and eco_guaranteed < 2:
-            selected.insert(eco_guaranteed, t)
-            used.add(id(t))
-            eco_guaranteed += 1
-            logger.info(f"경제 topic guaranteed #{eco_guaranteed}: {t.get('keyword', '')[:60]}")
-    # Fill remaining 경제 slots with fallbacks if needed
-    while eco_guaranteed < 2:
-        today = datetime.now().strftime('%Y년 %m월')
-        fallback_kw = _rand.choice(_economy_fallbacks)
+    today_str = datetime.now().strftime('%Y년 %m월')
+    _CATEGORY_FALLBACKS = {
+        '경제': [
+            '코스피 코스닥 증시 전망 분석',
+            '한국은행 기준금리 결정 경제 영향',
+            '수출 무역수지 경기 전망',
+            '삼성전자 실적 반도체 시장',
+            '소비자물가 인플레이션 경제 전망',
+            '국채 금리 채권시장 분석',
+            '스타트업 투자 벤처캐피탈 동향',
+            '고용 실업률 일자리 경제지표',
+        ],
+        '글로벌 경제': [
+            '비트코인 암호화폐 시장 전망',
+            '미국 연준 금리 결정 나스닥',
+            '달러 환율 원달러 외환시장',
+            '금값 원자재 국제 시세 동향',
+            '유가 국제유가 에너지 시장',
+            '미중 무역전쟁 관세 글로벌 공급망',
+            '유럽 경제 ECB 금리 유로',
+            '일본 엔화 일본은행 통화정책',
+        ],
+        'IT·테크': [
+            'AI 인공지능 빅테크 최신 동향',
+            '반도체 HBM 삼성전자 SK하이닉스 경쟁',
+            '클라우드 AWS 구글 마이크로소프트',
+            '스마트폰 갤럭시 아이폰 시장',
+            '자율주행 전기차 테슬라 기술',
+            '사이버보안 해킹 데이터 유출',
+        ],
+        '부동산': [
+            '서울 아파트 시세 매매 동향',
+            '분양 청약 신규 단지 정보',
+            '전세 월세 임대차 시장',
+            '재건축 재개발 정비사업 전망',
+            '부동산 대출 규제 DSR LTV',
+            '공시가격 보유세 종부세',
+        ],
+        '연예': [
+            'K-POP 아이돌 컴백 앨범 차트',
+            '넷플릭스 드라마 OTT 화제작',
+            '영화 박스오피스 흥행 분석',
+            '예능 프로그램 시청률 화제',
+            '아이돌 콘서트 투어 팬덤',
+            '연예인 SNS 화제 이슈',
+        ],
+        '스포츠': [
+            'KBO 프로야구 순위 경기 분석',
+            'K리그 축구 경기 결과 분석',
+            'MLB 메이저리그 한국 선수',
+            'NBA 농구 시즌 분석',
+            '손흥민 EPL 토트넘 경기',
+            'WBC 월드베이스볼클래식 대한민국',
+            '올림픽 국제대회 한국 선수단',
+            'UFC 격투기 한국 선수',
+        ],
+    }
+
+    # Guarantee at least 1 topic per category
+    for cat in ALL_CATEGORIES:
+        cat_bucket = buckets.get(cat, [])
+        _rand.shuffle(cat_bucket)
+        guaranteed = 0
+        for t in cat_bucket:
+            if id(t) not in used and guaranteed < 1:
+                selected.insert(len(selected), t)
+                used.add(id(t))
+                guaranteed += 1
+        # Fill with fallback if no trending topic found
+        if guaranteed == 0 and cat in _CATEGORY_FALLBACKS:
+            fallback_kw = _rand.choice(_CATEGORY_FALLBACKS[cat])
+            fallback_topic = {
+                'keyword': f'{fallback_kw} {today_str}',
+                'source': 'category_guarantee',
+                'score': 50,
+                'region': 'KR',
+                'url': '',
+                '_quick_cat': cat,
+            }
+            selected.append(fallback_topic)
+            used.add(id(fallback_topic))
+            logger.info(f"  {cat} fallback guaranteed: {fallback_kw}")
+
+    # Extra 경제 guarantee (always 2)
+    eco_count = sum(1 for t in selected if t.get('_quick_cat') == '경제')
+    while eco_count < 2:
+        fallback_kw = _rand.choice(_CATEGORY_FALLBACKS['경제'])
         eco_topic = {
-            'keyword': f'{fallback_kw} {today}',
+            'keyword': f'{fallback_kw} {today_str}',
             'source': 'economy_guarantee',
             'score': 50,
             'region': 'KR',
             'url': '',
             '_quick_cat': '경제',
         }
-        selected.insert(eco_guaranteed, eco_topic)
+        selected.insert(0, eco_topic)
         used.add(id(eco_topic))
-        eco_guaranteed += 1
-        logger.info(f"경제 fallback guaranteed #{eco_guaranteed}: {eco_topic.get('keyword', '')[:60]}")
-
-    # Append generic category keywords as last resort
-    for cat in priority_order:
-        selected.append({
-            'keyword': f'{cat} 최신 뉴스 트렌드 오늘',
-            'source': 'category_fill',
-            'score': 10,
-            'region': 'KR',
-            'url': '',
-            '_quick_cat': cat,
-        })
+        eco_count += 1
+        logger.info(f"경제 extra guarantee: {fallback_kw}")
 
     logger.info(f"Prepared {len(selected)} candidate topics (target: {target_count})")
     preview = ", ".join(f"[{t.get('_quick_cat', '?')}] {t.get('keyword', '')[:40]}" for t in selected[:5])
