@@ -79,17 +79,20 @@ GLOBAL_TECH_FEEDS = [
 
 
 def _parse_rss(xml_text: str, source_name: str, limit: int = 5) -> List[Dict]:
-    """Parse RSS XML and extract article titles as trending topics."""
+    """Parse RSS/Atom XML and extract article titles as trending topics."""
     items = []
     try:
         root = ET.fromstring(xml_text)
-        # Handle both standard RSS and Atom namespaces
-        for idx, item in enumerate(root.findall('.//item')):
+        # Handle both RSS (<item>) and Atom (<entry>) formats
+        atom_ns = '{http://www.w3.org/2005/Atom}'
+        entries = root.findall('.//item') or root.findall(f'.//{atom_ns}entry')
+        for idx, item in enumerate(entries):
             if len(items) >= limit:
                 break
-            title_el = item.find('title')
-            link_el = item.find('link')
-            desc_el = item.find('description')
+            # RSS: <title>, Atom: <title> (with namespace)
+            title_el = item.find('title') or item.find(f'{atom_ns}title')
+            link_el = item.find('link') or item.find(f'{atom_ns}link')
+            desc_el = item.find('description') or item.find(f'{atom_ns}summary')
 
             title = title_el.text.strip() if title_el is not None and title_el.text else ''
             if not title or len(title) < 5:
@@ -99,7 +102,10 @@ def _parse_rss(xml_text: str, source_name: str, limit: int = 5) -> List[Dict]:
             title = re.sub(r'<!\[CDATA\[(.*?)\]\]>', r'\1', title)
             title = re.sub(r'<[^>]+>', '', title).strip()
 
-            link = link_el.text.strip() if link_el is not None and link_el.text else ''
+            # RSS: <link>url</link>, Atom: <link href="url"/>
+            link = ''
+            if link_el is not None:
+                link = link_el.get('href', '') or (link_el.text.strip() if link_el.text else '')
             desc = ''
             if desc_el is not None and desc_el.text:
                 desc = re.sub(r'<[^>]+>', '', desc_el.text).strip()[:200]
