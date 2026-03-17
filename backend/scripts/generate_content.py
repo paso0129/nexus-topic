@@ -762,6 +762,22 @@ def _parse_response(response_text: str, topic: str) -> Dict:
     else:
         keywords = extract_keywords(content)
 
+    # Force 글로벌 경제 for clearly international topics
+    if category == '경제' and keywords:
+        global_indicators = {
+            '비트코인', '암호화폐', '가상자산', '달러', '금값', '유가', '원유',
+            '연준', 'fed', '나스닥', 's&p500', '다우', '미국', '중국',
+            '일본', '유럽', '환율', '원달러', '엔화', '위안화',
+            '네타냐후', '트럼프', '바이든', '이스라엘', '우크라이나',
+            '러시아', '대만', '인도', 'etf', '월가', '골드만삭스',
+        }
+        kw_lower = {k.lower() for k in keywords}
+        title_lower = title.lower()
+        title_globals = any(ind in title_lower for ind in global_indicators)
+        if (kw_lower & global_indicators) or title_globals:
+            logger.info(f"Category forced: 경제 → 글로벌 경제 (title={title[:30]})")
+            category = '글로벌 경제'
+
     return {
         'title': title,
         'meta_description': meta_description,
