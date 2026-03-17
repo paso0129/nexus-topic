@@ -18,6 +18,12 @@ import requests
 
 logger = logging.getLogger(__name__)
 
+
+def _get_text_utf8(resp: requests.Response) -> str:
+    """Force UTF-8 decoding for RSS responses (requests often misdetects charset)."""
+    resp.encoding = 'utf-8'
+    return resp.text
+
 # Category mapping: NexusTopic category → RSS feeds
 KOREAN_RSS_FEEDS = {
     '경제': [
@@ -111,7 +117,7 @@ def fetch_korean_news_rss(limit_per_feed: int = 5) -> List[Dict]:
         resp = requests.get(SBS_POPULAR_FEED, timeout=15,
                            headers={'User-Agent': 'NexusTopic/1.0'})
         resp.raise_for_status()
-        popular = _parse_rss(resp.text, 'sbs_popular', limit=8)
+        popular = _parse_rss(_get_text_utf8(resp), 'sbs_popular', limit=8)
         all_topics.extend(popular)
         logger.info(f"  SBS 인기뉴스: {len(popular)} topics")
     except Exception as e:
@@ -125,7 +131,7 @@ def fetch_korean_news_rss(limit_per_feed: int = 5) -> List[Dict]:
                 resp = requests.get(url, timeout=15,
                                    headers={'User-Agent': 'NexusTopic/1.0'})
                 resp.raise_for_status()
-                items = _parse_rss(resp.text, source_name, limit=limit_per_feed)
+                items = _parse_rss(_get_text_utf8(resp), source_name, limit=limit_per_feed)
                 # Tag with category
                 for item in items:
                     item['_quick_cat'] = category
@@ -203,7 +209,7 @@ def fetch_global_tech_rss(limit_per_feed: int = 5) -> List[Dict]:
                                headers={'User-Agent': 'NexusTopic/1.0'})
             resp.raise_for_status()
             # RSS 상위 기사 = 가장 중요. _parse_rss가 이미 순서 기반 스코어 부여
-            items = _parse_rss(resp.text, source_name, limit=limit_per_feed)
+            items = _parse_rss(_get_text_utf8(resp), source_name, limit=limit_per_feed)
             for item in items:
                 item['_quick_cat'] = 'IT·테크'
             all_topics.extend(items)

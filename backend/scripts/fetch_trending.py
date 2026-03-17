@@ -59,6 +59,7 @@ def fetch_google_trends(
                 timeout=15,
             )
             resp.raise_for_status()
+            resp.encoding = 'utf-8'
 
             import xml.etree.ElementTree as ET
             root = ET.fromstring(resp.text)
