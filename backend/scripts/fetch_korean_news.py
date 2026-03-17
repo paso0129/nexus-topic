@@ -41,6 +41,17 @@ KOREAN_RSS_FEEDS = {
         ('hankyung_international', 'https://www.hankyung.com/feed/international'),
         ('sbs_international', 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=07&plink=RSSREADER'),
     ],
+    '정치': [
+        ('sbs_politics', 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=01&plink=RSSREADER'),
+        ('hankyung_politics', 'https://www.hankyung.com/feed/politics'),
+    ],
+    '사회': [
+        ('sbs_society', 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=03&plink=RSSREADER'),
+        ('hankyung_society', 'https://www.hankyung.com/feed/society'),
+    ],
+    '글로벌 사회': [
+        ('sbs_international', 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=07&plink=RSSREADER'),
+    ],
     '부동산': [
         ('hankyung_realestate', 'https://www.hankyung.com/feed/realestate'),
         ('mk_realestate', 'https://www.mk.co.kr/rss/40300001/'),
@@ -74,7 +85,7 @@ def _parse_rss(xml_text: str, source_name: str, limit: int = 5) -> List[Dict]:
         root = ET.fromstring(xml_text)
         # Handle both standard RSS and Atom namespaces
         for idx, item in enumerate(root.findall('.//item')):
-            if idx >= limit:
+            if len(items) >= limit:
                 break
             title_el = item.find('title')
             link_el = item.find('link')
