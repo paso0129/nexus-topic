@@ -169,10 +169,18 @@ def get_all_trending_topics(
     Returns:
         Combined and sorted list of trending topics
     """
-    logger.info("Fetching trending topics from Google Trends + Reddit")
+    logger.info("Fetching trending topics from Google Trends + Korean News RSS + Reddit")
 
     google_trends = fetch_google_trends(markets=markets, limit=limit_per_source)
     reddit_trends = fetch_reddit_hot(limit_per_sub=limit_per_source)
+
+    # Korean news RSS + Naver DataLab
+    korean_trends = []
+    try:
+        from scripts.fetch_korean_news import get_korean_trending_topics
+        korean_trends = get_korean_trending_topics(limit_per_feed=5)
+    except Exception as e:
+        logger.warning(f"Korean news fetch failed: {e}")
 
     # Normalize scores to 0-100 scale so different sources are comparable
     def _normalize(trends: list) -> list:
@@ -186,8 +194,9 @@ def get_all_trending_topics(
 
     _normalize(google_trends)
     _normalize(reddit_trends)
+    _normalize(korean_trends)
 
-    all_trends = google_trends + reddit_trends
+    all_trends = google_trends + korean_trends + reddit_trends
 
     # Boost high-CPC category keywords (finance, insurance, legal, health, AI/SaaS, real estate)
     HIGH_CPC_KEYWORDS = [
@@ -297,7 +306,7 @@ def get_all_trending_topics(
         logger.info(f"Excluded {excluded_count} war/conflict-related topics")
 
     logger.info(f"Total trending topics collected: {len(unique_trends)} (from {len(all_trends)} raw)")
-    logger.info(f"Sources: Google Trends={len(google_trends)}, Reddit={len(reddit_trends)}")
+    logger.info(f"Sources: Google Trends={len(google_trends)}, Korean News={len(korean_trends)}, Reddit={len(reddit_trends)}")
 
     return unique_trends
 

@@ -1,0 +1,200 @@
+"""
+Korean News RSS Trending Fetcher
+
+Collects trending topics from Korean news outlets:
+- SBS 뉴스 인기기사 (popular/headline)
+- 한국경제 카테고리별
+- 매일경제 카테고리별
+- 네이버 데이터랩 급상승 검색어 (HTML scraping)
+"""
+
+import logging
+import re
+import xml.etree.ElementTree as ET
+from typing import List, Dict
+from datetime import datetime
+
+import requests
+
+logger = logging.getLogger(__name__)
+
+# Category mapping: NexusTopic category → RSS feeds
+KOREAN_RSS_FEEDS = {
+    '경제': [
+        ('sbs_economy', 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=02&plink=RSSREADER'),
+        ('hankyung_economy', 'https://www.hankyung.com/feed/economy'),
+        ('hankyung_finance', 'https://www.hankyung.com/feed/finance'),
+    ],
+    'IT·테크': [
+        ('hankyung_it', 'https://www.hankyung.com/feed/it'),
+        ('etnews_popular', 'http://rss.etnews.com/Section903.xml'),
+    ],
+    '글로벌 경제': [
+        ('hankyung_international', 'https://www.hankyung.com/feed/international'),
+        ('sbs_international', 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=07&plink=RSSREADER'),
+    ],
+    '부동산': [
+        ('hankyung_realestate', 'https://www.hankyung.com/feed/realestate'),
+        ('mk_realestate', 'https://www.mk.co.kr/rss/40300001/'),
+    ],
+    '연예': [
+        ('sbs_entertainment', 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=14&plink=RSSREADER'),
+        ('hankyung_entertainment', 'https://www.hankyung.com/feed/entertainment'),
+    ],
+    '스포츠': [
+        ('sbs_sports', 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=09&plink=RSSREADER'),
+        ('hankyung_sports', 'https://www.hankyung.com/feed/sports'),
+        ('mk_sports', 'https://www.mk.co.kr/rss/50400001/'),
+    ],
+}
+
+# SBS 인기뉴스 (all categories, popular articles)
+SBS_POPULAR_FEED = 'https://news.sbs.co.kr/news/TopicRssFeed.do?plink=RSSREADER'
+
+
+def _parse_rss(xml_text: str, source_name: str, limit: int = 5) -> List[Dict]:
+    """Parse RSS XML and extract article titles as trending topics."""
+    items = []
+    try:
+        root = ET.fromstring(xml_text)
+        # Handle both standard RSS and Atom namespaces
+        for idx, item in enumerate(root.findall('.//item')):
+            if idx >= limit:
+                break
+            title_el = item.find('title')
+            link_el = item.find('link')
+            desc_el = item.find('description')
+
+            title = title_el.text.strip() if title_el is not None and title_el.text else ''
+            if not title or len(title) < 5:
+                continue
+
+            # Clean CDATA and HTML
+            title = re.sub(r'<!\[CDATA\[(.*?)\]\]>', r'\1', title)
+            title = re.sub(r'<[^>]+>', '', title).strip()
+
+            link = link_el.text.strip() if link_el is not None and link_el.text else ''
+            desc = ''
+            if desc_el is not None and desc_el.text:
+                desc = re.sub(r'<[^>]+>', '', desc_el.text).strip()[:200]
+
+            items.append({
+                'keyword': title,
+                'source': source_name,
+                'score': max(limit - idx, 1) * 10,
+                'region': 'KR',
+                'url': link,
+                'description': desc,
+                'timestamp': datetime.now().isoformat(),
+            })
+    except ET.ParseError as e:
+        logger.warning(f"XML parse error for {source_name}: {e}")
+    return items
+
+
+def fetch_korean_news_rss(limit_per_feed: int = 5) -> List[Dict]:
+    """Fetch trending topics from Korean news RSS feeds, organized by category."""
+    logger.info("Fetching Korean news RSS feeds...")
+    all_topics = []
+
+    # 1. SBS 인기뉴스 (top stories across all categories)
+    try:
+        resp = requests.get(SBS_POPULAR_FEED, timeout=15,
+                           headers={'User-Agent': 'NexusTopic/1.0'})
+        resp.raise_for_status()
+        popular = _parse_rss(resp.text, 'sbs_popular', limit=8)
+        all_topics.extend(popular)
+        logger.info(f"  SBS 인기뉴스: {len(popular)} topics")
+    except Exception as e:
+        logger.warning(f"  SBS 인기뉴스 failed: {e}")
+
+    # 2. Category-specific feeds
+    for category, feeds in KOREAN_RSS_FEEDS.items():
+        cat_count = 0
+        for source_name, url in feeds:
+            try:
+                resp = requests.get(url, timeout=15,
+                                   headers={'User-Agent': 'NexusTopic/1.0'})
+                resp.raise_for_status()
+                items = _parse_rss(resp.text, source_name, limit=limit_per_feed)
+                # Tag with category
+                for item in items:
+                    item['_quick_cat'] = category
+                all_topics.extend(items)
+                cat_count += len(items)
+            except Exception as e:
+                logger.warning(f"  {source_name} failed: {e}")
+        logger.info(f"  {category}: {cat_count} topics")
+
+    logger.info(f"Total Korean news topics: {len(all_topics)}")
+    return all_topics
+
+
+def fetch_naver_datalab_trends() -> List[Dict]:
+    """
+    Fetch Naver DataLab rising search terms via HTML scraping.
+    Falls back gracefully if blocked.
+    """
+    logger.info("Fetching Naver DataLab trends...")
+    try:
+        resp = requests.get(
+            'https://datalab.naver.com/keyword/realtimeList.naver',
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
+                              'AppleWebKit/537.36 (KHTML, like Gecko) '
+                              'Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html',
+                'Accept-Language': 'ko-KR,ko;q=0.9',
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+
+        # Extract search terms from HTML
+        # Naver DataLab uses various formats, try common patterns
+        keywords = re.findall(
+            r'<span class="item_title"[^>]*>([^<]+)</span>',
+            resp.text
+        )
+        if not keywords:
+            # Alternative pattern
+            keywords = re.findall(
+                r'"keyword"\s*:\s*"([^"]+)"',
+                resp.text
+            )
+
+        topics = []
+        for idx, kw in enumerate(keywords[:20]):
+            kw = kw.strip()
+            if kw and len(kw) >= 2:
+                topics.append({
+                    'keyword': kw,
+                    'source': 'naver_datalab',
+                    'score': max(100 - idx * 5, 10),
+                    'region': 'KR',
+                    'timestamp': datetime.now().isoformat(),
+                })
+
+        logger.info(f"  Naver DataLab: {len(topics)} trends")
+        return topics
+
+    except Exception as e:
+        logger.warning(f"  Naver DataLab failed: {e}")
+        return []
+
+
+def get_korean_trending_topics(limit_per_feed: int = 5) -> List[Dict]:
+    """Fetch all Korean trending topics from RSS + DataLab."""
+    rss_topics = fetch_korean_news_rss(limit_per_feed=limit_per_feed)
+    datalab_topics = fetch_naver_datalab_trends()
+    all_topics = rss_topics + datalab_topics
+    logger.info(f"Total Korean trending: {len(all_topics)} (RSS={len(rss_topics)}, DataLab={len(datalab_topics)})")
+    return all_topics
+
+
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    topics = get_korean_trending_topics()
+    for t in topics[:30]:
+        cat = t.get('_quick_cat', '?')
+        print(f"  [{cat:6s}] [{t['source']:25s}] {t['keyword'][:60]}")
