@@ -88,7 +88,7 @@ def _get_genai_client():
     return genai.Client(api_key=api_key)
 
 
-def _generate_with_gemini_api(prompt: str, model_name: str = "gemini-2.5-pro") -> str:
+def _generate_with_gemini_api(prompt: str, model_name: str = "gemini-3.1-pro-preview") -> str:
     """Generate content using Google Gemini API (free tier)."""
     client = _get_genai_client()
     logger.info(f"Calling Gemini API ({model_name})...")
@@ -847,7 +847,7 @@ def generate_article(
     """
     Generate a complete SEO-optimized article.
     Primary: Gemini 3.1 Pro Preview via CLI
-    Fallback: Gemini API (gemini-2.5-pro)
+    Fallback: Gemini API (gemini-3.1-pro-preview)
     """
     # Randomize word count target within the given range for natural variation
     target = random.randint(min_words, max_words)
@@ -904,9 +904,9 @@ def generate_article(
         except Exception as e:
             logger.warning(f"Gemini CLI failed: {e}")
 
-    # Fallback: Gemini API (gemini-2.5-pro)
+    # Fallback: Gemini API (gemini-3.1-pro-preview)
     if os.getenv('GOOGLE_API_KEY') and genai:
-        logger.info(f"  Model: gemini-2.5-pro (API fallback)")
+        logger.info(f"  Model: gemini-3.1-pro-preview (API fallback)")
         for attempt in range(3):
             try:
                 if attempt > 0:
@@ -915,7 +915,7 @@ def generate_article(
                     time.sleep(wait)
                 article = _try_generate('Gemini API', lambda: _generate_with_gemini_api(prompt))
                 if article:
-                    article['_provider'] = 'gemini-2.5-pro (API)'
+                    article['_provider'] = 'gemini-3.1-pro-preview (API)'
                     time.sleep(5)
                     return article
             except Exception as e:
