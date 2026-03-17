@@ -128,7 +128,7 @@ def main():
     # Summary
     logger.info("\n=== Indexing Summary ===")
     logger.info(f"Articles indexed: {len(slugs)}")
-    logger.info(f"Static pages: {len(STATIC_PAGES) + len(categories)}")
+    logger.info(f"Static pages: {len(STATIC_PAGES)} + {len(CATEGORY_SLUGS)} categories")
     logger.info(f"Deleted URLs notified: {len(delete_urls)}")
     if result["errors"]:
         logger.info("Errors:")
