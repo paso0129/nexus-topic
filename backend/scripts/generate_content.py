@@ -653,9 +653,9 @@ HTML 앵커 태그 사용: <a href="URL" target="_blank" rel="noopener noreferre
 
 기사 요구사항:
 - 대상 독자: {target_audience}
-- 분량: {min_words}-{max_words} 어절
+- 분량: 반드시 {min_words}어절 이상 작성. 목표는 {min_words}-{max_words}어절. 800어절 미만은 절대 금지 — 충분한 깊이와 맥락을 담아야 한다.
 - 형식: HTML 시맨틱 태그 (h2, h3, p, ul, ol, strong, em, blockquote)
-- 톤: 전문적이고 객관적인 분석체 — 경제지 심층 보도 스타일
+- 톤: 전문적이고 객관적 — 카테고리별 톤 가이드 참조
 - SEO: 관련 키워드 자연스럽게 포함
 {internal_links_section}{external_links_section}{source_section}{search_data_section}{financial_context or ''}
 제목 최적화 (검색 노출 핵심):
