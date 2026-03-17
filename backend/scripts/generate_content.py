@@ -733,7 +733,13 @@ FAQ 규칙:
   * 능동태, 구체적 숫자/사실
   * 80자 이내 (공백·구두점 포함)
 
-- 카테고리: 경제, IT·테크, 글로벌 경제, 부동산, 연예, 스포츠 중 하나
+- 카테고리: 경제, IT·테크, 글로벌 경제, 정치, 사회, 글로벌 사회, 부동산, 연예, 스포츠 중 하나
+  * 경제: 한국 국내 경제/기업/시장
+  * 글로벌 경제: 해외 경제/비트코인/달러/유가/해외기업
+  * 정치: 국회/대통령/여야/선거/외교/안보
+  * 사회: 한국 국내 사건·사고/교육/환경/노동/의료정책
+  * 글로벌 사회: 해외 사건/국제기구/기후변화
+  * 기사 내용에 맞는 카테고리를 정확히 선택할 것 (RSS 소스와 다를 수 있음)
   * 경제: 한국 국내 경제 (코스피, 한국은행, 원화, 국내 기업 실적, 국내 부동산 정책 등)
   * 글로벌 경제: 해외 경제 (미국 증시, 연준, 달러, 유가, 비트코인, 해외 기업, 환율, 무역전쟁 등)
   * 구분 기준: 기사의 주요 대상이 한국이면 경제, 해외면 글로벌 경제
@@ -1082,7 +1088,7 @@ def generate_multiple_articles(
                 continue
 
             if wc < 800:
-                logger.warning(f"  Word count below target ({wc}/{min_wc}), publishing anyway")
+                logger.warning(f"  Word count below target ({wc}/800), publishing anyway")
 
             article['source_data'] = topic_data
             articles.append(article)
