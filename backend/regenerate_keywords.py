@@ -33,7 +33,7 @@ except ImportError:
 
 from scripts.database import DatabaseClient
 
-VALID_CATEGORIES = ['경제', 'IT·테크', '글로벌 경제', '부동산', '연예', '스포츠']
+VALID_CATEGORIES = ['경제', 'IT·테크', '글로벌 경제', '정치', '사회', '글로벌 사회', '부동산', '연예', '스포츠']
 
 
 def _generate_keywords_and_category(title: str, content: str) -> dict:
@@ -52,9 +52,16 @@ def _generate_keywords_and_category(title: str, content: str) -> dict:
         f"1. 이 기사의 주요 대상이 한국 국내인가, 해외인가?\n"
         f"   - DOMESTIC: 한국 국내 기업, 한국 정책, 한국 시장이 주제 (예: 코스피, 삼성전자, 한국은행)\n"
         f"   - GLOBAL: 해외 기업, 해외 인물, 해외 시장, 국제 이슈가 주제 (예: 비트코인, 달러, 네타냐후, 파키스탄, 나스닥)\n\n"
-        f"2. 카테고리: 아래 6개 중 하나\n"
-        f"   경제, IT·테크, 글로벌 경제, 부동산, 연예, 스포츠\n"
-        f"   규칙: 1번에서 DOMESTIC이면 경제, GLOBAL이면 글로벌 경제 (IT·테크/부동산/연예/스포츠는 별도)\n\n"
+        f"2. 카테고리: 아래 9개 중 하나\n"
+        f"   경제, IT·테크, 글로벌 경제, 정치, 사회, 글로벌 사회, 부동산, 연예, 스포츠\n"
+        f"   규칙:\n"
+        f"   - 경제: 한국 국내 경제/기업/시장\n"
+        f"   - 글로벌 경제: 해외 경제/비트코인/달러/유가/해외기업\n"
+        f"   - 정치: 국회/대통령/여야/선거/외교/안보\n"
+        f"   - 사회: 한국 국내 사건·사고/교육/환경/노동/법원\n"
+        f"   - 글로벌 사회: 해외 사건/국제기구/기후변화/해외 사회 이슈\n"
+        f"   - SCOPE가 DOMESTIC이고 경제/정치/사회 중 해당하는 것으로 분류\n"
+        f"   - SCOPE가 GLOBAL이고 경제 관련이면 글로벌 경제, 사회 관련이면 글로벌 사회\n\n"
         f"3. 키워드: 기사 핵심 주제를 대표하는 고유명사/명사 정확히 3개\n"
         f"   - 반드시 완전한 단어 (2글자 이상). 절대 단어를 자르지 마세요\n"
         f"   - ✅ 좋은 예: 대우건설, 주가, 성장동력 / 비트코인, 암호화폐, 투자\n"
@@ -94,10 +101,13 @@ def _generate_keywords_and_category(title: str, content: str) -> dict:
                 category = valid_cat
                 break
 
-    # If scope is GLOBAL but category is 경제, force to 글로벌 경제
+    # Scope-based category correction
     if scope == 'GLOBAL' and category == '경제':
         logger.info(f"  Scope=GLOBAL + Category=경제 → 글로벌 경제로 보정")
         category = '글로벌 경제'
+    if scope == 'GLOBAL' and category == '사회':
+        logger.info(f"  Scope=GLOBAL + Category=사회 → 글로벌 사회로 보정")
+        category = '글로벌 사회'
 
     # Parse keywords - flexible matching
     tags_match = re.search(r'(?:TAGS|키워드|태그)[:\s]*(.+)', raw, re.IGNORECASE)
