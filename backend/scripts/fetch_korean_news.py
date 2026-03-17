@@ -84,14 +84,23 @@ def _parse_rss(xml_text: str, source_name: str, limit: int = 5) -> List[Dict]:
         root = ET.fromstring(xml_text)
         # Handle both RSS (<item>) and Atom (<entry>) formats
         atom_ns = '{http://www.w3.org/2005/Atom}'
-        entries = root.findall('.//item') or root.findall(f'.//{atom_ns}entry')
+        entries = root.findall('.//item')
+        if not entries:
+            entries = root.findall(f'.//{atom_ns}entry')
         for idx, item in enumerate(entries):
             if len(items) >= limit:
                 break
             # RSS: <title>, Atom: <title> (with namespace)
-            title_el = item.find('title') or item.find(f'{atom_ns}title')
-            link_el = item.find('link') or item.find(f'{atom_ns}link')
-            desc_el = item.find('description') or item.find(f'{atom_ns}summary')
+            # NOTE: do NOT use `el or fallback` — bool(Element) is False when element has no children
+            title_el = item.find('title')
+            if title_el is None:
+                title_el = item.find(f'{atom_ns}title')
+            link_el = item.find('link')
+            if link_el is None:
+                link_el = item.find(f'{atom_ns}link')
+            desc_el = item.find('description')
+            if desc_el is None:
+                desc_el = item.find(f'{atom_ns}summary')
 
             title = title_el.text.strip() if title_el is not None and title_el.text else ''
             if not title or len(title) < 5:
