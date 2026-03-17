@@ -58,7 +58,7 @@ jobs:
           python main.py --articles ${{ github.event.inputs.articles || '2' }} || true
 
       - name: Revalidate frontend cache
-        if: always()
+        if: success()
         env:
           REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
         run: |
@@ -75,13 +75,13 @@ jobs:
           fi
 
       - name: Wait for sitemap ISR refresh
-        if: always()
+        if: success()
         run: |
           echo "Waiting 10s for ISR cache to propagate..."
           sleep 10
 
       - name: Reindex to Google (Indexing API)
-        if: always()
+        if: success()
         env:
           GOOGLE_INDEXING_SA_KEY: ${{ secrets.GOOGLE_INDEXING_SA_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -91,7 +91,7 @@ jobs:
           python -m scripts.batch_index --recent 24 --skip-static || true
 
       - name: Submit sitemaps to Search Console
-        if: always()
+        if: success()
         env:
           GOOGLE_INDEXING_SA_KEY: ${{ secrets.GOOGLE_INDEXING_SA_KEY }}
         run: |
@@ -99,7 +99,7 @@ jobs:
           python -m scripts.submit_sitemaps
 
       - name: Notify IndexNow + WebSub
-        if: always()
+        if: success()
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
