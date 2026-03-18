@@ -553,25 +553,7 @@ def _build_prompt(
     structure_block = random.choice(ARTICLE_STRUCTURES)
 
     # Build internal links section
-    internal_links_section = ""
-    if existing_articles:
-        links_list = "\n".join(
-            f"- \"{a['title']}\" [{a.get('topic', '')}] -> /article/{a['slug']}"
-            for a in existing_articles[:30]
-        )
-        internal_links_section = f"""
-내부 링크 (SEO 중요):
-아래는 우리 사이트의 기존 기사 목록입니다. 현재 주제와 관련된 2-3개 기사에 링크하세요.
-HTML 앵커 태그 사용: <a href="/article/SLUG">설명적 앵커 텍스트</a>
-규칙:
-- 같은 카테고리 또는 관련 카테고리의 기사를 우선 선택
-- "여기 클릭"이나 전체 제목 대신 자연스러운 문맥의 앵커 텍스트 사용
-- 링크를 본문 전체에 분산 배치
-- 아래 목록의 slug만 사용 — slug을 임의로 만들지 마세요
-
-기존 기사:
-{links_list}
-"""
+    internal_links_section = ""  # 내부 링크 비활성화
 
     # Build source reference section
     source_section = ""
@@ -964,7 +946,7 @@ CONTENT:
     try:
         client = anthropic.Anthropic(api_key=api_key)
         response = client.messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-haiku-4-5-20251001",
             max_tokens=4096,
             messages=[{"role": "user", "content": prompt}],
         )
