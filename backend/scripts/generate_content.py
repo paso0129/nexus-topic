@@ -964,6 +964,9 @@ def _factcheck_and_fix_with_claude(article: Dict) -> Dict:
 [내부 링크]
 11. 본문에 <a href="/article/..."> 형태의 내부 링크가 있으면 모두 제거 (링크 텍스트는 유지, <a> 태그만 제거)
 
+[코드/포맷 오류]
+12. 본문에 ```html, ```, 마크다운 코드블록 래퍼가 있으면 제거. HTML 본문만 남길 것
+
 응답 형식 (반드시 지킬 것):
 TITLE: 수정된 제목 (수정 불필요하면 원본 그대로)
 CATEGORY: 카테고리
