@@ -790,6 +790,11 @@ def _parse_response(response_text: str, topic: str) -> Dict:
         else:
             logger.warning(f"Invalid category '{raw_category}', defaulting to IT·테크")
 
+    # Clean up code block wrappers (```html ... ```) that Gemini sometimes adds
+    content = re.sub(r'```html\s*', '', content)
+    content = re.sub(r'```\s*$', '', content)
+    content = content.strip()
+
     word_count = len(re.sub(r'<[^>]+>', '', content).split())
     reading_time = calculate_reading_time(content)
 
