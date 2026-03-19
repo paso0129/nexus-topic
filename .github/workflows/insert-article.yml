@@ -55,7 +55,12 @@ jobs:
           db = get_db_client()
 
           # Read content file
-          with open('${{ github.event.inputs.content_file }}', 'r') as f:
+          import pathlib
+          # Try both relative to backend/ and repo root
+          fpath = '${{ github.event.inputs.content_file }}'
+          if not pathlib.Path(fpath).exists():
+              fpath = fpath.replace('backend/', '')
+          with open(fpath, 'r') as f:
               content = f.read().strip()
 
           # Get next slug
