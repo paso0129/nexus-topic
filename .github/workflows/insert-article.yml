@@ -1,0 +1,110 @@
+name: Insert Article
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: 'Article title'
+        required: true
+      category:
+        description: 'Category'
+        required: true
+        default: 'IT·테크'
+      keywords:
+        description: 'Keywords (comma-separated)'
+        required: true
+      content_file:
+        description: 'Content file path in repo (e.g. backend/articles/draft.html)'
+        required: true
+      author:
+        description: 'Author slug'
+        required: false
+        default: 'saebom-lim'
+
+jobs:
+  insert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: cd backend && pip install -r requirements.txt
+
+      - name: Insert article
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+        run: |
+          cd backend
+          python -c "
+          import os, re, requests
+          from scripts.database import get_db_client
+          from scripts.fetch_images import fetch_unsplash_image
+
+          db = get_db_client()
+
+          # Read content file
+          with open('${{ github.event.inputs.content_file }}', 'r') as f:
+              content = f.read().strip()
+
+          # Get next slug
+          result = db.client.table('articles').select('slug').order('slug', desc=True).limit(1).execute()
+          last_slug = int(result.data[0]['slug']) if result.data else 1000
+          new_slug = str(last_slug + 1)
+
+          title = '${{ github.event.inputs.title }}'
+          category = '${{ github.event.inputs.category }}'
+          keywords = [k.strip() for k in '${{ github.event.inputs.keywords }}'.split(',')]
+
+          word_count = len(re.sub(r'<[^>]+>', '', content).split())
+          reading_time = max(1, word_count // 200)
+
+          # Fetch image
+          image_url = ''
+          try:
+              img = fetch_unsplash_image(title)
+              if img:
+                  image_url = img.get('url', '')
+          except:
+              pass
+
+          article_data = {
+              'slug': new_slug,
+              'title': title,
+              'meta_description': title[:80],
+              'content': content,
+              'keywords': keywords,
+              'topic': category,
+              'word_count': word_count,
+              'reading_time': reading_time,
+              'featured_image': image_url,
+              'published': True,
+              'author': {'name': '임새봄', 'bio': 'IT·테크 담당 편집기자'},
+          }
+
+          db.client.table('articles').insert(article_data).execute()
+          print(f'Article inserted: slug={new_slug}, title={title}, words={word_count}')
+          print(f'URL: https://www.nexustopic.com/article/{new_slug}')
+
+          # Revalidate
+          secret = os.environ.get('REVALIDATION_SECRET', '')
+          if secret:
+              requests.post(
+                  'https://www.nexustopic.com/api/revalidate',
+                  headers={'Authorization': f'Bearer {secret}', 'Content-Type': 'application/json'},
+                  json={'slug': new_slug, 'all_articles': True},
+                  timeout=10,
+              )
+              print('Revalidated')
+          "
