@@ -23,7 +23,33 @@ jobs:
           cd backend
           pip install -r requirements.txt
 
-      - name: Update articles with rewritten content
+      - name: Delete 장경태 article (slug 1048)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          cd backend
+          python -c "
+          from scripts.database import get_db_client
+          db = get_db_client()
+          db.client.table('articles').delete().eq('slug', '1048').execute()
+          print('Deleted: slug=1048 (장경태 factcheck fail)')
+          "
+
+      - name: Fix 코스피 article category (slug 1042)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          cd backend
+          python -c "
+          from scripts.database import get_db_client
+          db = get_db_client()
+          db.update_article('1042', {'topic': '경제'})
+          print('Updated: slug=1042 category -> 경제')
+          "
+
+      - name: Fix html code block bug in all articles
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -34,47 +60,22 @@ jobs:
           from scripts.database import get_db_client
           db = get_db_client()
 
-          updates = {
-              '1036': {
-                  'file': 'articles/gangnam-apt.html',
-                  'title': '강남 3구 아파트값 3주째 추락, 강동까지 하락 전환',
-                  'meta_description': '강남3구 아파트 매매가 3주 연속 하락, 양도세 유예 종료와 공시가격 급등으로 매물 45.7% 급증',
-                  'keywords': ['강남아파트', '매매가하락', '양도세유예종료'],
-              },
-              '1037': {
-                  'file': 'articles/marriage-record.html',
-                  'title': '혼인 24만 건 돌파, 3년 연속 반등의 실체',
-                  'meta_description': '2025년 혼인 24만370건 기록, 연상연하 커플 19.9% 역대 최고, 출산율도 0.80명으로 반등',
-                  'keywords': ['혼인건수', '연상연하커플', '저출산'],
-              },
-              '1038': {
-                  'file': 'articles/bank-profit.html',
-                  'title': '4대 금융지주 순익 18조 돌파, 이자장사의 끝은 어디인가',
-                  'meta_description': '4대 금융지주 순이익 18.3조원 역대 최대, 은행법 개정으로 가산금리 규제 법제화',
-                  'keywords': ['은행순이익', '예대금리차', '은행법개정'],
-              },
-              '1039': {
-                  'file': 'articles/nvidia-behemoth.html',
-                  'title': '엔비디아, GTC 2026에서 AI 제국 로드맵을 펼치다',
-                  'meta_description': 'GTC 2026 Vera Rubin 아키텍처 공개, 시총 4.8조 달러, CUDA 점유율 하락 속 반격 전략',
-                  'keywords': ['엔비디아', 'GTC2026', 'VeraRubin'],
-              },
-          }
-
-          for slug, info in updates.items():
-              with open(info['file'], 'r') as f:
-                  content = f.read().strip()
-              word_count = len(re.sub(r'<[^>]+>', '', content).split())
-              reading_time = max(1, word_count // 200)
-              db.update_article(slug, {
-                  'title': info['title'],
-                  'meta_description': info['meta_description'],
-                  'content': content,
-                  'keywords': info['keywords'],
-                  'word_count': word_count,
-                  'reading_time': reading_time,
-              })
-              print(f'Updated: slug={slug}, title={info[\"title\"]}, words={word_count}')
+          # Get all published articles
+          result = db.client.table('articles').select('slug,title,content').eq('published', True).execute()
+          fixed = 0
+          for a in result.data:
+              content = a.get('content', '') or ''
+              if '\`\`\`html' in content or '\`\`\`' in content:
+                  # Remove code block wrappers
+                  new_content = re.sub(r'\`\`\`html\s*', '', content)
+                  new_content = re.sub(r'\`\`\`\s*$', '', new_content)
+                  new_content = re.sub(r'^\s*\`\`\`\s*', '', new_content)
+                  new_content = new_content.strip()
+                  if new_content != content.strip():
+                      db.update_article(a['slug'], {'content': new_content})
+                      print(f'Fixed code block: slug={a[\"slug\"]} title={a[\"title\"][:40]}')
+                      fixed += 1
+          print(f'Total fixed: {fixed}')
           "
 
       - name: Revalidate
