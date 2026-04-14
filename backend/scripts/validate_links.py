@@ -39,6 +39,30 @@ INTERNAL_PATTERNS = [
     "/article/",
 ]
 
+# Homepage-only URLs that indicate lazy sourcing (no specific article/report linked)
+HOMEPAGE_ONLY_PATTERNS = [
+    re.compile(r'^https?://(www\.)?reuters\.com/?$'),
+    re.compile(r'^https?://(www\.)?bloomberg\.com/?$'),
+    re.compile(r'^https?://(www\.)?apnews\.com/?$'),
+    re.compile(r'^https?://(www\.)?hankyung\.com/?$'),
+    re.compile(r'^https?://(www\.)?mk\.co\.kr/?$'),
+    re.compile(r'^https?://(www\.)?yna\.co\.kr/?$'),
+    re.compile(r'^https?://news\.kbs\.co\.kr/?$'),
+    re.compile(r'^https?://(www\.)?bbc\.com/?$'),
+    re.compile(r'^https?://(www\.)?bbc\.co\.uk/?$'),
+    re.compile(r'^https?://(www\.)?nytimes\.com/?$'),
+    re.compile(r'^https?://(www\.)?wsj\.com/?$'),
+    re.compile(r'^https?://(www\.)?ft\.com/?$'),
+]
+
+
+def _is_homepage_only(url: str) -> bool:
+    """Check if a URL points to a homepage root without a specific article path."""
+    for pattern in HOMEPAGE_ONLY_PATTERNS:
+        if pattern.match(url):
+            return True
+    return False
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -95,6 +119,13 @@ def _check_link(url: str) -> Dict:
         fixed_url: corrected URL if action is 'fix'
     """
     result = {"url": url, "status": None, "action": "keep", "fixed_url": None}
+
+    # Step 0: Flag homepage-only links (lazy sourcing)
+    if _is_homepage_only(url):
+        result["status"] = "homepage_only"
+        result["action"] = "remove"
+        logger.warning(f"  ⚠ Homepage-only link (no specific article): {url}")
+        return result
 
     # Step 1: Fix known domain typos before requesting
     fixed = _fix_domain_typo(url)
@@ -231,6 +262,7 @@ def validate_article_links(articles: list) -> list:
     total_removed = 0
     total_fixed = 0
     total_checked = 0
+    total_homepage_only = 0
 
     for idx, article in enumerate(articles, 1):
         title = article.get("title", f"Article {idx}")
@@ -270,6 +302,10 @@ def validate_article_links(articles: list) -> list:
 
         total_checked += len(check_results)
 
+        # Count homepage-only before applying fixes
+        homepage_only = sum(1 for r in check_results if r.get("status") == "homepage_only")
+        total_homepage_only += homepage_only
+
         # Apply fixes
         content, removed, fixed = _apply_fixes(content, check_results)
         article["content"] = content
@@ -278,7 +314,8 @@ def validate_article_links(articles: list) -> list:
 
     logger.info(
         f"Link validation complete: {total_checked} checked, "
-        f"{total_fixed} fixed, {total_removed} removed"
+        f"{total_fixed} fixed, {total_removed} removed "
+        f"({total_homepage_only} homepage-only links stripped)"
     )
 
     return articles

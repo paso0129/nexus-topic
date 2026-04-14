@@ -18,8 +18,9 @@ automation:
   articles_per_run: 1
 
   # Article length (word count) - randomized per article for natural variation
-  min_words: 800
-  max_words: 1200
+  # Increased for AdSense content quality requirements
+  min_words: 1500
+  max_words: 2500
 
   # Subreddits to monitor
   subreddits:

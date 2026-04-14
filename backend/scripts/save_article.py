@@ -15,26 +15,16 @@ from pathlib import Path
 
 import requests
 
-# Category-to-author mapping (must match frontend src/lib/authors.ts)
-_AUTHORS = {
-    '송민재': {'name': '송민재', 'bio': '거시경제, 금융시장, 환율·금리 동향을 데이터 기반으로 분석합니다.'},
-    '임새봄': {'name': '임새봄', 'bio': '반도체, AI, 클라우드 등 IT·테크 산업을 데이터 기반으로 분석합니다.'},
-    '정상열': {'name': '정상열', 'bio': '부동산, 엔터테인먼트, 스포츠 산업을 비즈니스 시각으로 분석합니다.'},
+# Unified editorial team author (matches frontend src/lib/authors.ts)
+EDITORIAL_AUTHOR = {
+    'name': 'NexusTopic 편집팀',
+    'bio': 'AI를 활용하여 트렌딩 이슈를 데이터 기반으로 분석하고, 편집팀이 팩트체크와 최종 검토를 수행합니다.',
 }
-CATEGORY_AUTHOR_MAP = {
-    '경제': _AUTHORS['송민재'],
-    '글로벌 경제': _AUTHORS['송민재'],
-    'IT·테크': _AUTHORS['임새봄'],
-    '부동산': _AUTHORS['정상열'],
-    '연예': _AUTHORS['정상열'],
-    '스포츠': _AUTHORS['정상열'],
-}
-DEFAULT_AUTHOR = _AUTHORS['송민재']
 
 
 def _get_author_for_topic(topic: str) -> Dict[str, str]:
-    """Return the appropriate author dict based on article topic/category."""
-    return CATEGORY_AUTHOR_MAP.get(topic, DEFAULT_AUTHOR)
+    """Return the editorial team author dict."""
+    return EDITORIAL_AUTHOR
 
 
 # Import database client

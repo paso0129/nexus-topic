@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from scripts.database import get_db_client
 from scripts.generate_content import (
-    AUTHOR_PERSONAS, DEFAULT_PERSONA, _get_author_for_category,
+    EDITORIAL_VOICE, _get_author_for_category,
     _generate_with_gemini_cli, _generate_with_gemini_api,
     calculate_reading_time, extract_keywords,
 )
@@ -33,29 +33,26 @@ logger = logging.getLogger(__name__)
 
 
 def _build_rewrite_prompt(title: str, content: str, author_name: str, topic: str) -> str:
-    """Build a prompt to rewrite an existing article with author persona."""
-    persona = AUTHOR_PERSONAS.get(author_name, DEFAULT_PERSONA)
+    """Build a prompt to rewrite an existing article with editorial voice."""
+    return f"""REWRITE the following article with improved quality. Keep the same topic and key facts, but enhance analysis depth and source citations.
 
-    return f"""REWRITE the following article completely in your own voice. Keep the same topic and key facts, but make it sound like YOU wrote it from scratch.
-
-AUTHOR IDENTITY:
-{persona['voice']}
+WRITING IDENTITY:
+{EDITORIAL_VOICE}
 
 REWRITING RULES:
 - Keep the same core topic and key facts/statistics
 - Completely change the sentence structure, phrasing, and flow
-- Add your personal perspective and editorial commentary
-- Use first person naturally ("I think...", "What strikes me...")
+- Add deeper data-driven analysis with specific source citations
+- NEVER use first person (나, 저, 내가, 필자, 우리) — use objective third-person only
 - VARY sentence length: mix short punchy sentences with longer analytical ones
-- Add em dashes, parenthetical asides, rhetorical questions — write like a human columnist
-- NEVER use: "It remains to be seen", "Only time will tell", "In conclusion", "It's worth noting", "landscape", "paradigm shift", "game-changer", "delve into"
-- NEVER start with "In a move that..." or "In an era where..."
-- Use <blockquote> for editorial commentary: "Editor's take: ..."
+- NEVER use: "귀추가 주목된다", "지켜봐야 할 것이다", "결론적으로", "주목할 만하다", "패러다임", "게임체인저"
 - Keep HTML format (h2, h3, p, ul, ol, strong, em, blockquote)
 - Keep any existing <a href> links intact — preserve all external links
-- Target length: 500-800 words (shorter and tighter than the original)
-- Write a NEW headline (under 60 chars) that's specific and intriguing
+- Every statistic must include its source (organization name + year)
+- Target length: 1500-2500 words (deeper than the original)
+- Write a NEW headline (under 40 chars Korean) that's specific and data-driven
 - Write a NEW meta description (under 160 chars)
+- End with: <p class="ai-disclosure">이 기사는 AI 분석을 기반으로 작성되었으며, NexusTopic 편집팀이 검토했습니다.</p>
 
 ORIGINAL TITLE: {title}
 CATEGORY: {topic}
