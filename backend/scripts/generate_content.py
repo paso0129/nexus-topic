@@ -93,17 +93,28 @@ def _get_genai_client():
     return genai.Client(api_key=api_key)
 
 
-def _generate_with_gemini_api(prompt: str, model_name: str = "gemini-3.1-pro-preview") -> str:
-    """Generate content using Google Gemini API (free tier)."""
+def _generate_with_gemini_api(
+    prompt: str,
+    model_name: str = "gemini-3.1-pro-preview",
+    use_search: bool = True,
+) -> str:
+    """Generate content using Google Gemini API with Google Search grounding."""
     client = _get_genai_client()
-    logger.info(f"Calling Gemini API ({model_name})...")
+    logger.info(f"Calling Gemini API ({model_name}, search={'on' if use_search else 'off'})...")
+
+    config_kwargs = {
+        'temperature': 0.7,
+        'max_output_tokens': 16384,
+    }
+    if use_search:
+        config_kwargs['tools'] = [
+            genai_types.Tool(google_search=genai_types.GoogleSearch())
+        ]
+
     response = client.models.generate_content(
         model=model_name,
         contents=prompt,
-        config=genai_types.GenerateContentConfig(
-            temperature=0.7,
-            max_output_tokens=16384,
-        ),
+        config=genai_types.GenerateContentConfig(**config_kwargs),
     )
     return response.text
 
@@ -144,9 +155,9 @@ def _is_semantic_duplicate(new_title: str, existing_titles: set) -> bool:
             f'Reply ONLY "YES" or "NO".'
         )
 
-        # Try Gemini API first (fast, lightweight task)
+        # Try Gemini API first (fast, lightweight task — no search needed)
         try:
-            resp_text = _generate_with_gemini_api(prompt)
+            resp_text = _generate_with_gemini_api(prompt, use_search=False)
             answer = resp_text.strip().upper()
             time.sleep(3)
             if answer == 'YES':
@@ -283,7 +294,7 @@ def extract_keywords(content: str, max_keywords: int = 10) -> list:
 
 
 VALID_CATEGORIES = [
-    '경제', 'IT·테크', '글로벌 경제', '정치', '사회', '글로벌 사회', '부동산', '연예', '스포츠',
+    '경제', 'IT·테크', '글로벌 경제', '부동산', '연예', '스포츠',
 ]
 
 # Unified editorial voice (no fake personas)
@@ -410,44 +421,6 @@ CATEGORY_TONE_GUIDE = {
 - 드라마틱 표현 적극 활용: "벼랑 끝", "막을 올린다", "출사표를 던졌다", "승부수"
 - 절대 '단순한 X가 아니다' 패턴 금지
 - 절대 모든 스포츠를 경제/비즈니스/데이터 프레임으로 쓰지 말 것""",
-    '정치': """카테고리별 톤 가이드 — 정치 (경향신문/한겨레/조선일보 스타일):
-- 첫 문장 패턴: "[인물 풀네임+직함]은 [날짜] [맥락]에 대해 '직접 인용'이라고 밝혔다."
-- 역피라미드: 가장 중요한 발언/사실 → 보충 발언 → 배경 설명
-- 문단 극도로 짧게 (1~2문장 = 1문단)
-- 직접인용과 간접인용 교차 반복: "..."이라고 밝혔다 / "..."라며 / "..."라고 했다
-- 인용 동사: 밝혔다, 말했다, 강조했다, 지적했다, 덧붙였다 (언급했다/전했다 사용 자제)
-- 여야 입장을 균형 있게 병렬 제시 — 한쪽 편들기 금지
-- 기자 의견/감정적 수식어 거의 없음 — 발언 중심 보도
-- 비공식 정보: "~것으로 알려졌다", "~것으로 전해졌다" 패턴 사용
-- 직접인용문은 구어적이어도 됨: "이건 야당도 맨날 하던 얘기지 않나" 식의 실제 말투
-- 시간 표지: "17일", "이날 오전", "앞서", "이어"
-- 해라체 사용 (~다, ~했다, ~밝혔다)""",
-
-    '사회': """카테고리별 톤 가이드 — 사회 (SBS/MBC/YTN 스타일):
-- 첫 문장 패턴: "[행위 주체]이/가 [행위/상황]에 나섰습니다/밝혔습니다."
-- 경어체(~습니다) 사용 — 방송 뉴스체
-- 문단 극도로 짧게 (1문장 = 1문단이 흔함, 방송 원고 특성)
-- 날짜 표기: "오늘(17일)" 형태로 괄호 병기
-- 사건 기사: 오늘의 사실 → 경과(어제/지난주) → 혐의 상세 → 수사 정황 → 향후 전망
-- 생활 기사: 현상 제시 → 원인 설명 → 해결 방법 → 관계자 코멘트
-- 수사 기사에서 비공식 정보: "~것으로 알려졌습니다", "~것으로 파악됐습니다"
-- 금액 표기: 한글+숫자 혼합 ("3천만 원", "1천100만 원")
-- 피해자 개인정보 보호: 실명 대신 "A씨(30대)" 형태
-- 기자 의견/감정적 수식어 배제 — 팩트만 나열
-- 마무리: 관계자 코멘트 직접인용으로 종결""",
-
-    '글로벌 사회': """카테고리별 톤 가이드 — 글로벌 사회 (SBS 국제부/연합뉴스 스타일):
-- 첫 문장 패턴: "[행위 주체]이/가 [행위]했다고 [매체/기관]이 보도했습니다."
-- 경어체(~습니다) 사용
-- 외신 인용 중층구조: "성도일보는 '...'이라며 '...'라고 주장했습니다" — 외국 매체를 인용하면서 한국어 문법으로 재구성
-- 매체 성향 명시: "친중 성향의 홍콩 성도일보", "이란 타스님 통신"
-- 외국어 고유명사: 첫 등장 시만 병기 "세질(Sejjil)", 이후는 한글만
-- 인물: 반드시 풀네임+직함 "스콧 베선트 미국 재무장관"
-- 날짜: "16일(현지시간)" 형태
-- 해석은 외부 주체에 귀속: "외신들은 ~로 평가된다고 분석했습니다" (기자 직접 의견 금지)
-- 구체적 수치 밀도 높게: "배럴당 93.5달러", "5.3% 내린"
-- 한국과의 연관성이 있으면 반드시 언급
-- 마무리: 향후 전망 또는 각국 반응으로 종결""",
 }
 
 
@@ -462,6 +435,7 @@ def _build_prompt(
     search_context: dict = None,
     financial_context: str = None,
     category: str = None,
+    news_context: str = None,
 ) -> str:
     """Build the article generation prompt."""
     # Randomly select article structure for variety
@@ -604,7 +578,7 @@ HTML 앵커 태그 사용: <a href="URL" target="_blank" rel="noopener noreferre
 - 데이터 시각화: 가능하면 비교 테이블(<table>) 또는 핵심 수치 리스트를 1개 이상 포함
 - 톤: 전문적이고 객관적 — 카테고리별 톤 가이드 참조
 - SEO: 관련 키워드 자연스럽게 포함
-{internal_links_section}{external_links_section}{source_section}{search_data_section}{financial_context or ''}
+{internal_links_section}{external_links_section}{source_section}{search_data_section}{financial_context or ''}{news_context or ''}
 제목 최적화 (검색 노출 핵심):
 - 필수: H2 제목 중 최소 2개는 질문형(?로 끝남). 이것은 필수 요건.
   * 실제 검색 데이터가 있으면 실제 검색어를 H2 질문 제목으로 변환
@@ -806,6 +780,7 @@ def generate_article(
     author_name: str = None,
     search_context: dict = None,
     financial_context: str = None,
+    news_context: str = None,
     **kwargs,
 ) -> Dict:
     """
@@ -830,6 +805,7 @@ def generate_article(
         search_context=search_context,
         financial_context=financial_context,
         category=kwargs.get('category'),
+        news_context=news_context,
     )
 
     # Collect valid slugs for internal link validation
@@ -847,29 +823,21 @@ def generate_article(
         logger.info(f"[{provider_name}] Generated: {article.get('title', '?')} ({wc} words)")
         return article
 
-    # Primary: Gemini CLI (gemini-3.1-pro-preview, Google account auth)
-    if _gemini_cli_path:
-        try:
-            logger.info(f"  Model: gemini-3.1-pro-preview (CLI)")
-            article = _try_generate('Gemini CLI', lambda: _generate_with_gemini_cli(prompt))
-            if article:
-                article['_provider'] = 'gemini-3.1-pro-preview (CLI)'
-                return article
-        except Exception as e:
-            logger.warning(f"Gemini CLI failed: {e}")
-
-    # Fallback: Gemini API (gemini-3.1-pro-preview)
+    # Primary: Gemini API with Google Search grounding (ensures real-time data)
     if os.getenv('GOOGLE_API_KEY') and genai:
-        logger.info(f"  Model: gemini-3.1-pro-preview (API fallback)")
+        logger.info(f"  Model: gemini-3.1-pro-preview (API + Google Search grounding)")
         for attempt in range(3):
             try:
                 if attempt > 0:
                     wait = 30 * attempt
                     logger.info(f"Rate limit retry {attempt}/3, waiting {wait}s...")
                     time.sleep(wait)
-                article = _try_generate('Gemini API', lambda: _generate_with_gemini_api(prompt))
+                article = _try_generate(
+                    'Gemini API+Search',
+                    lambda: _generate_with_gemini_api(prompt, use_search=True),
+                )
                 if article:
-                    article['_provider'] = 'gemini-3.1-pro-preview (API)'
+                    article['_provider'] = 'gemini-3.1-pro-preview (API+Search)'
                     time.sleep(5)
                     return article
             except Exception as e:
@@ -877,8 +845,19 @@ def generate_article(
                     logger.warning(f"Gemini API rate limit hit (attempt {attempt+1}/3)")
                     continue
                 logger.error(f"Gemini API error: {e}")
-                return {}
-        logger.error("Gemini API rate limit exhausted after 3 retries")
+                break
+        logger.warning("Gemini API exhausted, falling back to CLI")
+
+    # Fallback: Gemini CLI (no grounding — last resort)
+    if _gemini_cli_path:
+        try:
+            logger.info(f"  Model: gemini-3.1-pro-preview (CLI, no grounding)")
+            article = _try_generate('Gemini CLI', lambda: _generate_with_gemini_cli(prompt))
+            if article:
+                article['_provider'] = 'gemini-3.1-pro-preview (CLI)'
+                return article
+        except Exception as e:
+            logger.warning(f"Gemini CLI failed: {e}")
 
     logger.error("No LLM provider available (Gemini CLI and Gemini API both failed).")
     return {}
@@ -1135,6 +1114,15 @@ def generate_multiple_articles(
             logger.info(f"Skipping topic with 0 autocomplete results (no search demand): {topic}")
             continue
 
+        # Fetch real news articles for benchmarking (Naver + Google News)
+        news_context = None
+        try:
+            from scripts.fetch_news_context import fetch_news_context
+            ai_keyword = topic_data.get('_ai_core_keyword', '')
+            news_context = fetch_news_context(ai_keyword or topic, max_articles=8)
+        except Exception as e:
+            logger.warning(f"News context fetch failed for '{topic}': {e}")
+
         source_url = topic_data.get('url', '')
         article = generate_article(
             topic,
@@ -1143,6 +1131,7 @@ def generate_multiple_articles(
             author_name=author_name,
             search_context=search_context,
             financial_context=financial_context,
+            news_context=news_context,
             category=quick_cat,
             **kwargs,
         )

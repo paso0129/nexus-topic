@@ -152,9 +152,20 @@ def load_config(config_path: str = 'config.yaml') -> Dict:
 # Category-balanced topic selection
 # ---------------------------------------------------------------------------
 
-ALL_CATEGORIES = [
-    '경제', 'IT·테크', '글로벌 경제', '정치', '사회', '글로벌 사회', '부동산', '연예', '스포츠',
-]
+# AdSense-optimized topic clusters with generation weight (total = 100)
+# Core: high CPC, data-driven analysis, E-E-A-T suitable
+# Support: high CPC, practical utility
+# Traffic: low CPC but drives page views
+TOPIC_CLUSTERS = {
+    '경제':       {'weight': 25, 'tier': 'core'},
+    'IT·테크':    {'weight': 25, 'tier': 'core'},
+    '글로벌 경제': {'weight': 20, 'tier': 'core'},
+    '부동산':     {'weight': 20, 'tier': 'support'},
+    '연예':       {'weight': 5,  'tier': 'traffic'},
+    '스포츠':     {'weight': 5,  'tier': 'traffic'},
+}
+
+ALL_CATEGORIES = list(TOPIC_CLUSTERS.keys())
 
 _CATEGORY_KEYWORDS: Dict[str, List[str]] = {
     '경제': [
@@ -194,6 +205,7 @@ _CATEGORY_KEYWORDS: Dict[str, List[str]] = {
         '국가대표', '월드컵', '아시안게임',
     ],
 }
+# Note: 정치, 사회, 글로벌 사회 removed — sensitive/ephemeral content unfavorable for AdSense
 
 
 def _quick_classify(keyword: str) -> str:
@@ -243,48 +255,55 @@ def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]
             t['_ai_core_keyword'] = ''
 
     buckets: Dict[str, List[Dict]] = defaultdict(list)
+    dropped_count = 0
     for t in topics:
         cat = t.get('_ai_category') or _quick_classify(t['keyword'])
+        # Drop removed categories entirely (sensitive/ephemeral content)
+        if cat in ('정치', '사회', '글로벌 사회'):
+            logger.info(f"  Dropping [{cat}] topic: {t.get('keyword', '')[:40]}")
+            dropped_count += 1
+            continue
         t['_quick_cat'] = cat
         buckets[cat].append(t)
+    if dropped_count:
+        logger.info(f"  Dropped {dropped_count} topics from removed categories")
 
     logger.info("Category distribution of trending topics:")
     for cat in ALL_CATEGORIES:
         logger.info(f"  {cat}: {len(buckets.get(cat, []))} topics")
 
-    # Get recent category counts from DB → prioritize underrepresented
+    # Weighted selection: allocate slots per category based on TOPIC_CLUSTERS weights
+    total_weight = sum(c['weight'] for c in TOPIC_CLUSTERS.values())
+    cat_slots = {}
+    for cat, info in TOPIC_CLUSTERS.items():
+        cat_slots[cat] = max(1, round(target_count * info['weight'] / total_weight))
+    logger.info(f"Target slots per category: {cat_slots} (total target: {target_count})")
+
+    # Get recent category counts from DB for tiebreaking within same tier
     recent_counts = _get_recent_category_counts()
-    # Sort categories by count (ascending) → least represented first
-    priority_order = sorted(ALL_CATEGORIES, key=lambda c: recent_counts.get(c, 0))
-    logger.info(f"Category priority (least → most): {[f'{c}({recent_counts[c]})' for c in priority_order]}")
 
     selected = []
     used = set()
 
-    # Priority round: pick from least represented categories first
-    for cat in priority_order:
-        for topic in buckets.get(cat, []):
+    # Fill each category up to its allocated slots
+    for cat in ALL_CATEGORIES:
+        slots = cat_slots.get(cat, 0)
+        items = buckets.get(cat, [])
+        filled = 0
+        for topic in items:
+            if filled >= slots:
+                break
             topic_id = id(topic)
             if topic_id not in used:
                 selected.append(topic)
                 used.add(topic_id)
-                break  # one per category in priority round
+                filled += 1
 
-    # Round-robin: fill more from each category
-    max_per_cat = 3
-    for round_idx in range(max_per_cat):
-        for cat in priority_order:
-            items = buckets.get(cat, [])
-            if round_idx < len(items):
-                topic = items[round_idx]
-                topic_id = id(topic)
-                if topic_id not in used:
-                    selected.append(topic)
-                    used.add(topic_id)
-
-    # Fill remaining with highest-scoring unused topics
-    for t in topics:
-        if id(t) not in used:
+    # Fill remaining slots with highest-scoring unused topics from core categories
+    for t in sorted(topics, key=lambda x: x.get('score', 0), reverse=True):
+        if len(selected) >= target_count:
+            break
+        if id(t) not in used and t.get('_quick_cat') in ALL_CATEGORIES:
             selected.append(t)
             used.add(id(t))
 
@@ -319,28 +338,6 @@ def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]
             '스마트폰 갤럭시 아이폰 시장',
             '자율주행 전기차 테슬라 기술',
             '사이버보안 해킹 데이터 유출',
-        ],
-        '정치': [
-            '국회 법안 처리 여야 합의',
-            '대통령 정책 발표 국정운영',
-            '총선 지방선거 여론조사',
-            '외교 한미 한중 한일 관계',
-            '국방 안보 군사 동향',
-        ],
-        '사회': [
-            '교육 대입 수능 정책',
-            '환경 기후변화 미세먼지',
-            '인구 저출산 고령화 대책',
-            '노동 최저임금 근로시간',
-            '법원 대법원 판결 사건',
-            '교통 안전 사고 예방',
-        ],
-        '글로벌 사회': [
-            'UN 국제기구 결의 동향',
-            '기후변화 탄소중립 국제 협약',
-            '해외 자연재해 피해 복구',
-            '이민 난민 국제 인권',
-            '글로벌 보건 WHO 감염병',
         ],
         '부동산': [
             '서울 아파트 시세 매매 동향',
@@ -395,22 +392,23 @@ def _select_balanced_topics(topics: List[Dict], target_count: int) -> List[Dict]
             used.add(id(fallback_topic))
             logger.info(f"  {cat} fallback guaranteed: {fallback_kw}")
 
-    # Extra 경제 guarantee (always 2)
-    eco_count = sum(1 for t in selected if t.get('_quick_cat') == '경제')
-    while eco_count < 2:
-        fallback_kw = _rand.choice(_CATEGORY_FALLBACKS['경제'])
-        eco_topic = {
-            'keyword': f'{fallback_kw} {today_str}',
-            'source': 'economy_guarantee',
-            'score': 50,
-            'region': 'KR',
-            'url': '',
-            '_quick_cat': '경제',
-        }
-        selected.insert(0, eco_topic)
-        used.add(id(eco_topic))
-        eco_count += 1
-        logger.info(f"경제 extra guarantee: {fallback_kw}")
+    # Extra guarantee for core categories (always ≥2 each)
+    for core_cat in [c for c, info in TOPIC_CLUSTERS.items() if info['tier'] == 'core']:
+        cat_count = sum(1 for t in selected if t.get('_quick_cat') == core_cat)
+        while cat_count < 2 and core_cat in _CATEGORY_FALLBACKS:
+            fallback_kw = _rand.choice(_CATEGORY_FALLBACKS[core_cat])
+            core_topic = {
+                'keyword': f'{fallback_kw} {today_str}',
+                'source': f'{core_cat}_guarantee',
+                'score': 50,
+                'region': 'KR',
+                'url': '',
+                '_quick_cat': core_cat,
+            }
+            selected.insert(0, core_topic)
+            used.add(id(core_topic))
+            cat_count += 1
+            logger.info(f"{core_cat} extra guarantee: {fallback_kw}")
 
     logger.info(f"Prepared {len(selected)} candidate topics (target: {target_count})")
     preview = ", ".join(f"[{t.get('_quick_cat', '?')}] {t.get('keyword', '')[:40]}" for t in selected[:5])

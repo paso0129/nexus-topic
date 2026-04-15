@@ -33,6 +33,13 @@ AI_DISCLOSURE_HTML = (
 
 FAKE_AUTHOR_NAMES = {'송민재', '임새봄', '정상열', '안다혜', '강희주', '변현선'}
 
+# Remap removed categories to active ones
+CATEGORY_REMAP = {
+    '정치': '경제',
+    '사회': '경제',
+    '글로벌 사회': '글로벌 경제',
+}
+
 MIN_WORD_COUNT = 800  # Articles below this are flagged
 
 
@@ -73,6 +80,7 @@ def main():
     # Counters
     author_updated = 0
     disclosure_added = 0
+    category_remapped = 0
     flagged_short = []
     flagged_no_sources = []
 
@@ -80,6 +88,12 @@ def main():
         slug = a['slug']
         content = a.get('content', '')
         updates = {}
+
+        # --- 0. Category remap (remove legacy categories) ---
+        current_topic = a.get('topic', '')
+        if current_topic in CATEGORY_REMAP:
+            updates['topic'] = CATEGORY_REMAP[current_topic]
+            category_remapped += 1
 
         # --- 1. Author reassignment ---
         current_author = a.get('author', {}) or {}
@@ -130,6 +144,7 @@ def main():
     logger.info(f"MIGRATION REPORT")
     logger.info(f"{'=' * 60}")
     logger.info(f"Authors reassigned:    {author_updated}")
+    logger.info(f"Categories remapped:   {category_remapped}")
     logger.info(f"AI disclosures added:  {disclosure_added}")
     logger.info(f"Flagged short (<{MIN_WORD_COUNT}w): {len(flagged_short)}")
     logger.info(f"Flagged no sources (<2): {len(flagged_no_sources)}")

@@ -32,5 +32,18 @@ automation:
   # HackerNews settings
   hackernews_limit: 10
 
+  # Topic cluster strategy (AdSense-optimized)
+  # Core (70%): high CPC, data-driven, E-E-A-T suitable
+  # Support (20%): high CPC, practical utility
+  # Traffic (10%): low CPC, drives page views
+  # Removed: 정치, 사회, 글로벌 사회 (sensitive/ephemeral)
+  topic_clusters:
+    경제: { weight: 25, tier: core }
+    IT·테크: { weight: 25, tier: core }
+    글로벌 경제: { weight: 20, tier: core }
+    부동산: { weight: 20, tier: support }
+    연예: { weight: 5, tier: traffic }
+    스포츠: { weight: 5, tier: traffic }
+
   # Content generation
   content_model: "claude-sonnet-4-5-20250929"

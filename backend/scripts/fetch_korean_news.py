@@ -42,17 +42,6 @@ KOREAN_RSS_FEEDS = {
         ('hankyung_international', 'https://www.hankyung.com/feed/international'),
         ('sbs_international', 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=07&plink=RSSREADER'),
     ],
-    '정치': [
-        ('sbs_politics', 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=01&plink=RSSREADER'),
-        ('hankyung_politics', 'https://www.hankyung.com/feed/politics'),
-    ],
-    '사회': [
-        ('sbs_society', 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=03&plink=RSSREADER'),
-        ('hankyung_society', 'https://www.hankyung.com/feed/society'),
-    ],
-    '글로벌 사회': [
-        ('sbs_international', 'https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=07&plink=RSSREADER'),
-    ],
     '부동산': [
         ('hankyung_realestate', 'https://www.hankyung.com/feed/realestate'),
     ],
