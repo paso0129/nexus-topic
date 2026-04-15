@@ -1,0 +1,49 @@
+name: Migrate AdSense Quality
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Run mode'
+        required: true
+        default: 'dry-run'
+        type: choice
+        options:
+          - dry-run
+          - apply
+          - apply-unpublish
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      - name: Run migration
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          cd backend
+          MODE="${{ github.event.inputs.mode }}"
+          if [ "$MODE" = "dry-run" ]; then
+            python -m scripts.migrate_adsense_quality --dry-run
+          elif [ "$MODE" = "apply-unpublish" ]; then
+            python -m scripts.migrate_adsense_quality --unpublish
+          else
+            python -m scripts.migrate_adsense_quality
+          fi
