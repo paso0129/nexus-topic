@@ -52,7 +52,6 @@ REWRITING RULES:
 - Target length: 1500-2500 words (deeper than the original)
 - Write a NEW headline (under 40 chars Korean) that's specific and data-driven
 - Write a NEW meta description (under 160 chars)
-- End with: <p class="ai-disclosure">이 기사는 AI 분석을 기반으로 작성되었으며, NexusTopic 편집팀이 검토했습니다.</p>
 
 ORIGINAL TITLE: {title}
 CATEGORY: {topic}

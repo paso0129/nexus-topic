@@ -540,7 +540,6 @@ HTML 앵커 태그 사용: <a href="URL" target="_blank" rel="noopener noreferre
 
 작성 주체:
 {persona_voice}
-기사 하단에 "이 기사는 AI 분석을 기반으로 작성되었으며, NexusTopic 편집팀이 검토했습니다."를 <p class="ai-disclosure"> 태그로 포함하세요.
 
 한국 25-45세 성인 독자를 위해 씁니다. 카테고리에 맞는 톤으로 작성하세요 — 모든 기사를 경제/투자/코스피와 연결할 필요 없습니다.
 {category_guide_section}

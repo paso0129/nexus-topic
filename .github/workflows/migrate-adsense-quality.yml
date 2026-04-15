@@ -14,6 +14,7 @@ on:
           - apply-unpublish
           - audit
           - delete-low-quality
+          - remove-ai-disclosure
 
 jobs:
   migrate:
@@ -42,7 +43,9 @@ jobs:
         run: |
           cd backend
           MODE="${{ github.event.inputs.mode }}"
-          if [ "$MODE" = "delete-low-quality" ]; then
+          if [ "$MODE" = "remove-ai-disclosure" ]; then
+            python -m scripts.remove_ai_disclosure
+          elif [ "$MODE" = "delete-low-quality" ]; then
             python -m scripts.delete_low_quality
           elif [ "$MODE" = "audit" ]; then
             python -m scripts.audit_articles
