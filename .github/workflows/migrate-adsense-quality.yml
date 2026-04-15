@@ -12,6 +12,7 @@ on:
           - dry-run
           - apply
           - apply-unpublish
+          - audit
 
 jobs:
   migrate:
@@ -40,7 +41,9 @@ jobs:
         run: |
           cd backend
           MODE="${{ github.event.inputs.mode }}"
-          if [ "$MODE" = "dry-run" ]; then
+          if [ "$MODE" = "audit" ]; then
+            python -m scripts.audit_articles
+          elif [ "$MODE" = "dry-run" ]; then
             python -m scripts.migrate_adsense_quality --dry-run
           elif [ "$MODE" = "apply-unpublish" ]; then
             python -m scripts.migrate_adsense_quality --unpublish
