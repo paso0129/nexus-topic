@@ -43,31 +43,7 @@ jobs:
           cd backend
           MODE="${{ github.event.inputs.mode }}"
           if [ "$MODE" = "delete-low-quality" ]; then
-            python -c "
-import os
-from supabase import create_client
-
-supabase = create_client(os.environ['SUPABASE_URL'], os.environ['SUPABASE_SERVICE_KEY'])
-
-# Get delete candidate IDs: <500 words AND 0 source links
-import re
-result = supabase.table('articles').select('id, slug, title, content').eq('published', True).execute()
-to_delete = []
-for a in (result.data or []):
-    content = a.get('content', '') or ''
-    wc = len(re.sub(r'<[^>]+>', '', content).split())
-    sources = len(re.findall(r'<a\s+[^>]*href=[\"'\'']https?://', content))
-    if wc < 500 and sources == 0:
-        to_delete.append(a)
-
-print(f'Found {len(to_delete)} delete candidates')
-for a in to_delete:
-    slug = a.get('slug', '')
-    title = (a.get('title', '') or '')[:50]
-    print(f'  Deleting slug={slug}: {title}')
-    supabase.table('articles').delete().eq('id', a['id']).execute()
-print(f'Deleted {len(to_delete)} low-quality articles')
-"
+            python -m scripts.delete_low_quality
           elif [ "$MODE" = "audit" ]; then
             python -m scripts.audit_articles
           elif [ "$MODE" = "dry-run" ]; then
