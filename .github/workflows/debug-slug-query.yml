@@ -21,9 +21,9 @@ jobs:
           python-version: '3.11'
 
       - name: Install supabase client
-        run: pip install supabase
+        run: pip install supabase requests
 
-      - name: Query articles + view for slug
+      - name: Service-role vs anon query comparison
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -31,32 +31,53 @@ jobs:
         run: |
           python - <<'PY'
           import os
-          from supabase import create_client
-          client = create_client(os.environ['SUPABASE_URL'], os.environ['SUPABASE_SERVICE_KEY'])
+          import urllib.parse
+          import requests
+
+          url = os.environ['SUPABASE_URL']
+          service_key = os.environ['SUPABASE_SERVICE_KEY']
           slug = os.environ['SLUG']
-          print(f"Query slug: {slug!r}")
-          print(f"len: {len(slug)}, bytes: {len(slug.encode('utf-8'))}")
 
-          print("\n--- articles table ---")
-          r1 = client.table('articles').select('slug, published, old_slug, title').eq('slug', slug).execute()
-          print(f"rows: {len(r1.data)}")
-          for row in r1.data:
-              print(row)
+          # Fetch live site's anon key from HTML (exposed via _next chunks).
+          # Fallback: parse from any public client page.
+          print(f"=== slug: {slug!r}")
 
-          print("\n--- article_detail_view ---")
-          r2 = client.table('article_detail_view').select('slug, published, title').eq('slug', slug).execute()
-          print(f"rows: {len(r2.data)}")
-          for row in r2.data:
-              print(row)
+          # Query with service_role (bypasses RLS)
+          def q(headers, label):
+              for tbl in ('articles', 'article_detail_view'):
+                  r = requests.get(
+                      f"{url}/rest/v1/{tbl}",
+                      params={'slug': f'eq.{slug}', 'select': 'slug,published'},
+                      headers=headers,
+                      timeout=10,
+                  )
+                  print(f"  [{label}] {tbl}: HTTP {r.status_code} rows={len(r.json()) if r.ok else '?'} body={r.text[:200]}")
 
-          print("\n--- ilike partial match ---")
-          r3 = client.table('articles').select('slug, published').ilike('slug', f'%{slug[:20]}%').execute()
-          print(f"rows: {len(r3.data)}")
-          for row in r3.data[:5]:
-              print(row)
+          print("\n=== service_role ===")
+          q({'apikey': service_key, 'Authorization': f'Bearer {service_key}'}, 'service')
 
-          print("\n--- sample 5 korean slugs ---")
-          r4 = client.table('articles').select('slug, published').ilike('slug', '%-%').limit(5).execute()
-          for row in r4.data:
-              print(row['slug'][:80], '| published:', row['published'])
+          # Try to obtain an anon key from frontend HTML.
+          print("\n=== fetch anon key from live site ===")
+          html = requests.get('https://www.nexustopic.com/').text
+          import re
+          keys = re.findall(r'eyJhbGciOiJIUzI1[A-Za-z0-9._-]{100,}', html)
+          if not keys:
+              # Crawl chunks
+              chunks = re.findall(r'/_next/static/chunks/[a-z0-9/\-_]+\.js', html)
+              for ch in chunks[:15]:
+                  try:
+                      t = requests.get(f'https://www.nexustopic.com{ch}', timeout=10).text
+                      keys = re.findall(r'eyJhbGciOiJIUzI1[A-Za-z0-9._-]{100,}', t)
+                      if keys:
+                          print(f"  Found in {ch}")
+                          break
+                  except Exception:
+                      pass
+          if keys:
+              anon_key = keys[0]
+              print(f"  anon_key (len {len(anon_key)}): {anon_key[:40]}...")
+              print("\n=== anon ===")
+              q({'apikey': anon_key, 'Authorization': f'Bearer {anon_key}'}, 'anon')
+          else:
+              print("  anon key not found in HTML")
           PY
