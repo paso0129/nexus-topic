@@ -55,6 +55,8 @@ published/
 .pytest_cache/
 .coverage
 htmlcov/
+backend/test_article_gen.py
+backend/redirect_map.json
 
 # Jupyter Notebooks
 .ipynb_checkpoints

@@ -43,37 +43,81 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def create_slug(title: str) -> str:
+_HANJA_MAP = {
+    '前': '전', '後': '후', '新': '신', '舊': '구', '大': '대',
+    '小': '소', '中': '중', '韓': '한', '美': '미', '日': '일',
+    '中國': '중국', '北': '북', '南': '남', '東': '동', '西': '서',
+    '李': '이', '朴': '박', '金': '김', '文': '문', '尹': '윤',
+}
+
+
+def slugify_korean(title: str, max_length: int = 60) -> str:
     """
-    Create a sequential numeric slug by finding the max existing slug + 1.
-    Falls back to timestamp-based slug if DB query fails.
+    Convert article title to SEO-friendly Korean UTF-8 slug.
+
+    Google indexes Korean UTF-8 URLs natively; keyword-rich Korean slugs
+    provide strong TF-IDF signal matching title/content/meta for Korean
+    search queries.
 
     Args:
-        title: Article title (unused, kept for API compatibility)
+        title: Article title
+        max_length: Maximum slug length in characters
 
     Returns:
-        Numeric slug string (e.g. '1042')
+        Slug string e.g. '미국-전-부지사-아내-살해-정치인-살인사건'
     """
+    if not title:
+        return 'article'
+
+    text = title
+    for hanja, hangul in _HANJA_MAP.items():
+        text = text.replace(hanja, hangul)
+
+    text = re.sub(r'[^a-zA-Z0-9가-힣\s\-]', ' ', text)
+    text = re.sub(r'[\s\-]+', '-', text.strip())
+    text = re.sub(r'-+', '-', text).strip('-')
+
+    if len(text) > max_length:
+        cut = text[:max_length].rsplit('-', 1)[0]
+        text = cut if len(cut) >= 20 else text[:max_length].rstrip('-')
+
+    text = text.lower()
+    return text or 'article'
+
+
+def create_slug(title: str) -> str:
+    """
+    Create a Korean UTF-8 slug from the article title.
+
+    Resolves conflicts by appending -2/-3/... suffix. Falls back to
+    timestamp suffix after 10 collisions.
+
+    Args:
+        title: Article title
+
+    Returns:
+        Slug string e.g. '미국-전-부지사-아내-살해-정치인-살인사건'
+    """
+    base = slugify_korean(title)
+
     try:
         db = get_db_client()
-        # Find the highest numeric slug
-        result = db.client.table('articles') \
-            .select('slug') \
-            .order('slug', desc=True) \
-            .limit(100) \
-            .execute()
-
-        max_num = 1000  # Starting base
-        for row in (result.data or []):
-            s = row.get('slug', '')
-            if s.isdigit():
-                max_num = max(max_num, int(s))
-
-        return str(max_num + 1)
     except Exception as e:
-        logger.warning(f"Failed to query max slug, using timestamp: {e}")
-        import time
-        return str(int(time.time()))
+        logger.warning(f"DB unavailable for slug collision check: {e}")
+        return base
+
+    slug = base
+    for suffix in range(2, 12):
+        try:
+            if not db.check_slug_exists(slug):
+                return slug
+        except Exception as e:
+            logger.warning(f"Slug collision check failed: {e}")
+            return slug
+        slug = f"{base}-{suffix}"
+
+    import time
+    return f"{base}-{int(time.time())}"
 
 
 def save_article_to_database(article: Dict) -> bool:
