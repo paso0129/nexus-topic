@@ -10,6 +10,12 @@ ALTER TABLE articles ADD COLUMN IF NOT EXISTS old_slug TEXT;
 CREATE INDEX IF NOT EXISTS idx_articles_old_slug
   ON articles(old_slug) WHERE old_slug IS NOT NULL;
 
+-- 1b. Allow Korean UTF-8 characters in slug (was ASCII-only).
+ALTER TABLE articles
+  DROP CONSTRAINT valid_slug,
+  ADD  CONSTRAINT valid_slug
+       CHECK (slug ~ '^[a-z0-9가-힣\-]+$');
+
 -- 2. Relax trending_sources.source CHECK constraint.
 -- Old enum blocked dynamic source values (reddit_<sub>, naver_news,
 -- sbs_*, hankyung_*, etnews_*, arstechnica, google_news (<publisher>), ...).

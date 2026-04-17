@@ -20,7 +20,7 @@ CREATE TABLE articles (
   search_vector TSVECTOR GENERATED ALWAYS AS (
     to_tsvector('english', coalesce(title, '') || ' ' || coalesce(meta_description, '') || ' ' || coalesce(topic, ''))
   ) STORED,
-  CONSTRAINT valid_slug CHECK (slug ~ '^[a-z0-9-]+$'),
+  CONSTRAINT valid_slug CHECK (slug ~ '^[a-z0-9가-힣\-]+$'),
   CONSTRAINT positive_reading_time CHECK (reading_time > 0)
 );
 
