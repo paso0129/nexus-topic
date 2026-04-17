@@ -1,0 +1,53 @@
+name: Daily Index Pending Articles
+
+on:
+  schedule:
+    # Every day at 00:10 UTC (= 09:10 KST). Google quota resets at midnight PT.
+    - cron: '10 0 * * *'
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Max URLs to submit (default 180)'
+        required: false
+        default: '180'
+      dry_run:
+        description: 'Dry-run only'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      - name: Submit pending articles
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GOOGLE_INDEXING_SA_KEY: ${{ secrets.GOOGLE_INDEXING_SA_KEY }}
+        run: |
+          cd backend
+          LIMIT="${{ github.event.inputs.limit || '180' }}"
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            python -m scripts.index_pending --limit "$LIMIT" --dry-run
+          else
+            python -m scripts.index_pending --limit "$LIMIT"
+          fi

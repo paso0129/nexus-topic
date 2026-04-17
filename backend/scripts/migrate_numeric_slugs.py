@@ -139,9 +139,11 @@ def main():
     failed = 0
     for m in migrations:
         try:
+            # Reset indexing flag so the daily cron re-submits the new URL.
             supabase.table('articles').update({
                 'slug': m['new'],
                 'old_slug': m['old'],
+                'indexing_submitted_at': None,
             }).eq('id', m['id']).execute()
             succeeded += 1
         except Exception as e:
