@@ -1,14 +1,19 @@
--- Relax trending_sources.source CHECK constraint.
+-- Pre-migration DDL required before running migrate_numeric_slugs.py.
 --
--- Old CHECK enumerated 26 source values; code now emits dynamic values
--- (reddit_<subreddit>, naver_news, sbs_*, hankyung_*, etnews_*, arstechnica,
--- google_news (<publisher>), etc.) which would silently fail the old rule.
---
--- New rule: source is non-empty free-form text, capped at 100 chars.
--- Run on Supabase:
---   psql $DATABASE_URL -f migrate_trending_sources_check.sql
--- Or via Supabase SQL editor.
+-- Run this in the Supabase Dashboard → SQL Editor once.
+-- Safe to re-run; all statements are idempotent.
 
+-- 1. Add old_slug column for legacy URL redirects.
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS old_slug TEXT;
+
+-- Lookup index on old_slug (used by middleware for 301 redirects).
+CREATE INDEX IF NOT EXISTS idx_articles_old_slug
+  ON articles(old_slug) WHERE old_slug IS NOT NULL;
+
+-- 2. Relax trending_sources.source CHECK constraint.
+-- Old enum blocked dynamic source values (reddit_<sub>, naver_news,
+-- sbs_*, hankyung_*, etnews_*, arstechnica, google_news (<publisher>), ...).
+-- New rule: source is non-empty free-form text, capped at 100 chars.
 ALTER TABLE trending_sources
   DROP CONSTRAINT IF EXISTS trending_sources_source_check;
 
