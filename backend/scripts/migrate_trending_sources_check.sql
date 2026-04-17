@@ -14,9 +14,10 @@ CREATE INDEX IF NOT EXISTS idx_articles_old_slug
 -- Old enum blocked dynamic source values (reddit_<sub>, naver_news,
 -- sbs_*, hankyung_*, etnews_*, arstechnica, google_news (<publisher>), ...).
 -- New rule: source is non-empty free-form text, capped at 100 chars.
+--
+-- Atomic DROP + ADD in a single ALTER TABLE so Supabase SQL Editor
+-- never sees an in-between state that trips "constraint already exists".
 ALTER TABLE trending_sources
-  DROP CONSTRAINT IF EXISTS trending_sources_source_check;
-
-ALTER TABLE trending_sources
-  ADD CONSTRAINT trending_sources_source_check
-  CHECK (char_length(source) BETWEEN 1 AND 100);
+  DROP CONSTRAINT trending_sources_source_check,
+  ADD  CONSTRAINT trending_sources_source_check
+       CHECK (char_length(source) BETWEEN 1 AND 100);
