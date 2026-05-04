@@ -1,0 +1,49 @@
+name: Daily Search Engine Notifications
+
+# Replaces daily-index-pending (Google Indexing API was a no-op for news pages —
+# that endpoint only supports JobPosting/BroadcastEvent). IndexNow covers
+# Bing/Yandex/Naver/Seznam, and the WebSub ping pushes the RSS feed to Google
+# via PubSubHubbub.
+
+on:
+  schedule:
+    # Daily at 00:10 UTC (= 09:10 KST) — same slot the legacy job used.
+    - cron: '10 0 * * *'
+  workflow_dispatch:
+    inputs:
+      recent_hours:
+        description: 'Only resubmit articles updated/created within the last N hours (blank = all)'
+        required: false
+        default: ''
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      - name: Submit to IndexNow + WebSub
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          cd backend
+          RECENT="${{ github.event.inputs.recent_hours }}"
+          if [ -n "$RECENT" ]; then
+            python -m scripts.notify_search_engines --recent "$RECENT"
+          else
+            python -m scripts.notify_search_engines
+          fi

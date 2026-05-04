@@ -1,9 +1,11 @@
-name: Daily Index Pending Articles
+name: Daily Index Pending Articles (DEPRECATED)
+
+# DEPRECATED 2026-05-04: Google Indexing API only supports JobPosting and
+# BroadcastEvent — calling it for news articles is a no-op (200 OK with no
+# actual indexing). Use daily-search-engines.yml (IndexNow + WebSub) instead.
+# Keeping this workflow as manual-only for emergency/News-schema use.
 
 on:
-  schedule:
-    # Every day at 00:10 UTC (= 09:10 KST). Google quota resets at midnight PT.
-    - cron: '10 0 * * *'
   workflow_dispatch:
     inputs:
       limit:

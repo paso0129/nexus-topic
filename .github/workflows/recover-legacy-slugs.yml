@@ -1,0 +1,78 @@
+name: Recover Legacy Slugs from GSC
+
+# Pulls every URL Google has impressed/clicked over the last N days, fuzzy-matches
+# orphaned English/numeric slugs back to current articles, and (optionally)
+# writes them into the slug_aliases table so middleware can 301-redirect
+# instead of returning 410 Gone.
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Look back this many days of GSC data'
+        required: false
+        default: '365'
+      min_confidence:
+        description: 'Minimum match confidence (0.00–1.00) to apply automatically'
+        required: false
+        default: '0.55'
+      apply:
+        description: 'Write to slug_aliases (false = dry-run JSON only)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      - name: Run recovery
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GOOGLE_INDEXING_SA_KEY: ${{ secrets.GOOGLE_INDEXING_SA_KEY }}
+        run: |
+          cd backend
+          DAYS="${{ github.event.inputs.days || '365' }}"
+          CONF="${{ github.event.inputs.min_confidence || '0.55' }}"
+          if [ "${{ github.event.inputs.apply }}" = "true" ]; then
+            python -m scripts.recover_legacy_slugs --days "$DAYS" --min-confidence "$CONF" --apply
+          else
+            python -m scripts.recover_legacy_slugs --days "$DAYS" --min-confidence "$CONF"
+          fi
+
+      - name: Upload candidates artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: legacy-slug-candidates
+          path: backend/legacy_slug_candidates.json
+          retention-days: 30
+
+      - name: Trigger middleware cache refresh
+        if: success() && github.event.inputs.apply == 'true'
+        env:
+          REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
+        run: |
+          curl -s -X POST "https://www.nexustopic.com/api/revalidate" \
+            -H "Authorization: Bearer $REVALIDATION_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{}' || true
