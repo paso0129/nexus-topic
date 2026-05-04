@@ -2,12 +2,11 @@ name: Generate Daily Articles
 
 on:
   schedule:
-    # 하루 6회, 한국 시간 기준 (UTC)
-    - cron: '0 22 * * *'   # KST 07:00 (출근)
+    # 2026-05-04: 색인 회복 위해 하루 6회 → 3회로 축소.
+    # 도메인 권위 낮은 상태에서 발행량 많으면 크롤 예산이 분산됨.
+    # GSC 노출/색인 회복 후 다시 늘릴 것.
     - cron: '0 0 * * *'    # KST 09:00 (오전)
-    - cron: '0 3 * * *'    # KST 12:00 (점심)
     - cron: '0 6 * * *'    # KST 15:00 (오후)
-    - cron: '0 9 * * *'    # KST 18:00 (퇴근)
     - cron: '0 13 * * *'   # KST 22:00 (야간)
   workflow_dispatch:
     inputs:
