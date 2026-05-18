@@ -1,6 +1,9 @@
 name: Migrate AdSense Quality
 
 on:
+  schedule:
+    # Weekly audit: Sunday 13:00 UTC = 22:00 KST. Read-only — logs report only.
+    - cron: '0 13 * * 0'
   workflow_dispatch:
     inputs:
       mode:
@@ -37,12 +40,15 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run migration
+        id: migrate
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           cd backend
-          MODE="${{ github.event.inputs.mode }}"
+          # Schedule trigger has no inputs — default to read-only audit
+          MODE="${{ github.event.inputs.mode || 'audit' }}"
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
           if [ "$MODE" = "remove-ai-disclosure" ]; then
             python -m scripts.remove_ai_disclosure
           elif [ "$MODE" = "delete-low-quality" ]; then
@@ -56,3 +62,15 @@ jobs:
           else
             python -m scripts.migrate_adsense_quality
           fi
+
+      - name: Notify Discord
+        if: always()
+        uses: ./.github/actions/discord-notify
+        with:
+          webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          status: ${{ job.status == 'success' && 'success' || 'failure' }}
+          title: "📊 AdSense quality — ${{ steps.migrate.outputs.mode || 'audit' }} (${{ job.status }})"
+          message: |
+            Mode: `${{ steps.migrate.outputs.mode || 'audit' }}`
+            Trigger: `${{ github.event_name }}`
+            Full report in the Actions log.

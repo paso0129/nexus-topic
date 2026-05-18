@@ -47,3 +47,12 @@ jobs:
           else
             python -m scripts.notify_search_engines
           fi
+
+      - name: Notify Discord on failure
+        if: failure()
+        uses: ./.github/actions/discord-notify
+        with:
+          webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          status: failure
+          title: "🛑 Daily Search Engine Notifications failed"
+          message: IndexNow + WebSub submission failed.

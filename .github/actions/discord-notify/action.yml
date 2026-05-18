@@ -1,0 +1,49 @@
+name: Discord Notify
+description: Send a Discord webhook notification with a colored embed and a link back to the workflow run.
+
+inputs:
+  webhook-url:
+    description: Discord webhook URL. If empty, the step exits silently.
+    required: true
+  status:
+    description: 'success | failure | info'
+    required: true
+  title:
+    description: Embed title (e.g. workflow name).
+    required: true
+  message:
+    description: Optional body text. Markdown supported.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Post to Discord
+      shell: bash
+      env:
+        WEBHOOK: ${{ inputs.webhook-url }}
+        STATUS: ${{ inputs.status }}
+        TITLE: ${{ inputs.title }}
+        MESSAGE: ${{ inputs.message }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        REPO: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        if [ -z "${WEBHOOK:-}" ]; then
+          echo "::warning::DISCORD_WEBHOOK_URL not set — skipping notification"
+          exit 0
+        fi
+        case "$STATUS" in
+          success) COLOR=3066993 ;;
+          failure) COLOR=15158332 ;;
+          *)       COLOR=3447003 ;;
+        esac
+        BODY=$(printf '%s\n\n[%s · view run](%s)' "$MESSAGE" "$REPO" "$RUN_URL")
+        PAYLOAD=$(jq -n \
+          --arg title "$TITLE" \
+          --arg desc "$BODY" \
+          --argjson color "$COLOR" \
+          '{embeds: [{title: $title, description: $desc, color: $color}]}')
+        curl -sS -X POST -H "Content-Type: application/json" \
+          --data "$PAYLOAD" "$WEBHOOK" >/dev/null
